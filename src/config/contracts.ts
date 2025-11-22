@@ -9,9 +9,7 @@ export const CHAIN_CONFIG = {
   rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://worldchain-mainnet.g.alchemy.com/public',
 } as const;
 
-export const ENS_CONFIG = {
-  rpcUrl: process.env.NEXT_PUBLIC_ENS_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo',
-  chainId: 11155111, // Sepolia testnet
-} as const;
+// ENS resolution uses Ethereum Mainnet (handled in useENS hook)
+// Supports primary names on all L2s including World Chain
 
 export const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001';

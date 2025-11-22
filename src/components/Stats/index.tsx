@@ -1,7 +1,7 @@
 'use client';
 
 import { formatUnits } from 'ethers';
-import { Coin, Wallet, Database } from 'iconoir-react';
+import { Coins, Wallet, Database } from 'iconoir-react';
 
 interface StatsProps {
   userBalance: bigint;
@@ -43,7 +43,7 @@ export function Stats({ userBalance, poolBalances, userSwapValue }: StatsProps) 
       {/* Locked Funds */}
       <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
         <div className="flex items-center gap-3 mb-2">
-          <Coin className="w-6 h-6" />
+          <Coins className="w-6 h-6" />
           <h3 className="text-sm font-medium opacity-90">Locked Funds</h3>
         </div>
         <p className="text-3xl font-bold">

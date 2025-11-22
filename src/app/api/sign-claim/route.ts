@@ -17,7 +17,6 @@ function calculateReward(request: NextRequest): bigint {
   // Get device info from user-agent
   const userAgent = request.headers.get('user-agent') || '';
   const isIOS = /iPhone|iPad|iPod/.test(userAgent);
-  const isAndroid = /Android/.test(userAgent);
 
   // Argentina + Android: 1 ADS
   // Other countries + Android: 2 ADS
@@ -83,10 +82,11 @@ export async function POST(request: NextRequest) {
       timestamp,
       signature,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Sign claim error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

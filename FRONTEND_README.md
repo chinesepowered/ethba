@@ -187,10 +187,38 @@ Verifies World ID proof from MiniKit.
 
 ## ENS Integration
 
-- Uses **Sepolia testnet** for ENS lookups (not mainnet)
-- `useENS` hook fetches ENS names for advertiser addresses
-- Shows format: `vitalik.eth (0x1234...5678)`
-- Falls back to shortened address if no ENS name
+### Proper Reverse Resolution with Verification
+
+Following ENS best practices, the implementation:
+
+1. **Uses Ethereum Mainnet**: Primary ENS network (supports all L2 lookups)
+2. **Reverse Lookup**: Address → Name via `provider.lookupAddress()`
+3. **Forward Verification**: Name → Address via `provider.resolveName()`
+4. **Security Check**: Only displays if addresses match (prevents spoofing)
+
+```typescript
+// useENS hook implementation
+const reverseName = await provider.lookupAddress(address);
+const resolvedAddress = await provider.resolveName(reverseName);
+
+// Only show if verified
+if (resolvedAddress.toLowerCase() === address.toLowerCase()) {
+  setEnsName(reverseName);
+}
+```
+
+**Why Verification Matters:**
+Without forward verification, malicious actors could set fake reverse records. By verifying the name resolves back to the original address, we ensure ENS names are authentic.
+
+**Display Format:**
+- With ENS: `vitalik.eth (0x1234...5678)`
+- Without ENS: `0x1234...5678`
+- Verification Failed: `0x1234...5678` (name not shown)
+
+**Network Support:**
+- ✅ Ethereum Mainnet ENS names
+- ✅ L2 Primary Names (Base, OP, Arbitrum, etc.)
+- ✅ World Chain addresses with ENS names
 
 ## Contract Methods Used
 

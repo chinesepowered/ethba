@@ -23,14 +23,75 @@ export function RegistrationView() {
   const walletAddress = session?.user?.id as Address | undefined;
   const client = useADSClient();
 
-  // Check cached registration status
+  // Check for cached World ID verification
   useEffect(() => {
+    const action = process.env.NEXT_PUBLIC_WLD_ACTION || 'verify-human';
+    const cacheKey = `worldid_verification_${action}`;
+    const cachedVerification = localStorage.getItem(cacheKey);
+
+    if (cachedVerification) {
+      try {
+        const parsed = JSON.parse(cachedVerification);
+        setVerificationProof(parsed);
+        setIsVerified(true);
+      } catch {
+        localStorage.removeItem(cacheKey);
+      }
+    }
+
+    // Check if user already registered
     if (walletAddress) {
       const registered = localStorage.getItem(`ads_registered_${walletAddress}`);
       if (registered === 'true') {
         setIsRegistered(true);
       }
     }
+  }, [walletAddress]);
+
+  // Setup World ID verification listener
+  useEffect(() => {
+    if (!MiniKit.isInstalled() || !walletAddress) return;
+
+    MiniKit.subscribe(
+      ResponseEvent.MiniAppVerifyAction,
+      async (response: MiniAppVerifyActionPayload) => {
+        console.log('[RegistrationView] World ID response:', response);
+
+        if (response.status === "error") {
+          console.error('[RegistrationView] World ID verification error:', response);
+          setMessage(`World ID verification failed: ${response.error_code || 'Unknown error'}`);
+          setIsCreating(false);
+          return;
+        }
+
+        const successResponse = response as ISuccessResult;
+        console.log('[RegistrationView] World ID verification success:', successResponse);
+
+        const verificationData = {
+          root: successResponse.merkle_root,
+          nullifierHash: successResponse.nullifier_hash,
+          proof: Array.isArray(successResponse.proof) ? successResponse.proof : [successResponse.proof]
+        };
+
+        setVerificationProof(verificationData);
+        setIsVerified(true);
+        setMessage('World ID verification successful! Registering...');
+
+        // Cache the verification
+        const action = process.env.NEXT_PUBLIC_WLD_ACTION || 'verify-human';
+        const cacheKey = `worldid_verification_${action}`;
+        localStorage.setItem(cacheKey, JSON.stringify(verificationData));
+
+        // Automatically proceed with registration
+        setTimeout(() => {
+          proceedWithRegistration(verificationData);
+        }, 1000);
+      }
+    );
+
+    return () => {
+      MiniKit.unsubscribe(ResponseEvent.MiniAppVerifyAction);
+    };
   }, [walletAddress]);
 
   // Check registration status from contract
@@ -73,19 +134,14 @@ export function RegistrationView() {
     }
   }, [walletAddress, sessionStatus]);
 
-  // Simple registration without World ID
-  const register = async () => {
-    if (!MiniKit.isInstalled()) {
-      setMessage('Please open this app in World App');
-      return;
-    }
-
+  // Proceed with registration using verification data
+  const proceedWithRegistration = async (verificationData: { root: string; nullifierHash: string; proof: string[] | string; }) => {
     try {
-      console.log('[RegistrationView] Starting registration...');
+      console.log('[RegistrationView] Starting registration with proof:', verificationData);
       setIsCreating(true);
-      setMessage('Registering...');
+      setMessage('Checking registration status...');
 
-      // Check if already registered first
+      // First check if already registered
       if (walletAddress) {
         const alreadyRegistered = await client.readContract({
           address: CONTRACTS.ADS_DEMO,
@@ -104,14 +160,76 @@ export function RegistrationView() {
         }
       }
 
-      console.log('[RegistrationView] Calling register on contract:', CONTRACTS.ADS_DEMO);
+      setMessage('Registering with World ID...');
+
+      // Format proof according to World ID docs
+      let formattedProof: readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+
+      try {
+        if (Array.isArray(verificationData.proof)) {
+          if (verificationData.proof.length === 1) {
+            const unpackedProof = decodeAbiParameters(
+              [{ type: 'uint256[8]' }],
+              verificationData.proof[0] as `0x${string}`
+            )[0];
+            formattedProof = unpackedProof;
+          } else if (verificationData.proof.length >= 8) {
+            const proofArray = verificationData.proof.slice(0, 8).map((p: string) => BigInt(p));
+            if (proofArray.length === 8) {
+              formattedProof = proofArray as unknown as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+            } else {
+              setMessage(`Invalid proof array length: ${proofArray.length}`);
+              setIsCreating(false);
+              return;
+            }
+          } else {
+            setMessage(`Invalid proof array length: ${verificationData.proof.length}`);
+            setIsCreating(false);
+            return;
+          }
+        } else if (typeof verificationData.proof === 'string') {
+          const unpackedProof = decodeAbiParameters(
+            [{ type: 'uint256[8]' }],
+            verificationData.proof as `0x${string}`
+          )[0];
+          formattedProof = unpackedProof;
+        } else {
+          setMessage('Invalid proof format');
+          setIsCreating(false);
+          return;
+        }
+      } catch (proofError) {
+        console.error('Failed to format proof:', proofError);
+        setMessage('Invalid proof format');
+        setIsCreating(false);
+        return;
+      }
+
+      // Pass root and nullifierHash as strings - MiniKit converts automatically
+      console.log('[RegistrationView] Contract address:', CONTRACTS.ADS_DEMO);
+      console.log('[RegistrationView] ABI has register function:',
+        ADS_ABI.some((item: any) => item.name === 'register' && item.type === 'function')
+      );
+      console.log('[RegistrationView] Calling register with:', {
+        walletAddress,
+        root: verificationData.root,
+        nullifierHash: verificationData.nullifierHash,
+        proof: formattedProof.map(p => p.toString()),
+        proofType: typeof formattedProof,
+        argsLength: 4,
+      });
 
       const { finalPayload } = await MiniKit.commandsAsync.sendTransaction({
         transaction: [{
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_ABI,
           functionName: 'register',
-          args: [], // No args needed - simple registration
+          args: [
+            walletAddress, // signal should be the wallet address
+            verificationData.root, // MiniKit converts string to uint256
+            verificationData.nullifierHash, // MiniKit converts string to uint256
+            formattedProof, // Already formatted as bigint[8]
+          ],
         }],
       });
 
@@ -124,11 +242,21 @@ export function RegistrationView() {
         }
         setIsRegistered(true);
         refreshData();
+        // Refresh data after a short delay
         setTimeout(() => checkRegistration(), 3000);
       } else {
         console.error('[RegistrationView] Transaction failed:', finalPayload);
         const errorPayload = finalPayload as any;
         const errorMessage = errorPayload?.error || errorPayload?.error_code || 'Failed to register';
+
+        console.error('[RegistrationView] Error details:', {
+          error: errorPayload?.error,
+          error_code: errorPayload?.error_code,
+          message: errorPayload?.message,
+          description: errorPayload?.description,
+          details: errorPayload?.details,
+          full: JSON.stringify(errorPayload, null, 2),
+        });
 
         if (errorMessage.includes('already registered') || errorMessage.includes('AlreadyRegistered')) {
           setMessage('Already registered! Loading...');
@@ -137,12 +265,16 @@ export function RegistrationView() {
           }
           setIsRegistered(true);
           setTimeout(() => checkRegistration(), 1000);
+        } else if (errorMessage.includes('simulation')) {
+          setMessage(`Transaction simulation failed. This might be a proof verification error. Check console for details.`);
         } else {
           setMessage(`Registration failed: ${errorMessage}`);
         }
       }
     } catch (error: unknown) {
-      console.error('[RegistrationView] Failed to register:', error);
+      console.error('[RegistrationView] Failed to register (catch block):', error);
+      console.error('[RegistrationView] Error object:', JSON.stringify(error, null, 2));
+
       const errorStr = error?.toString() || '';
       if (errorStr.includes('already registered') || errorStr.includes('AlreadyRegistered')) {
         setMessage('Already registered! Loading...');
@@ -151,12 +283,54 @@ export function RegistrationView() {
           localStorage.setItem(`ads_registered_${walletAddress}`, 'true');
         }
         setTimeout(() => checkRegistration(), 1000);
+      } else if (errorStr.includes('simulation')) {
+        setMessage(`Transaction simulation failed. Check console for full error details.`);
       } else {
         setMessage(`Failed to register. Error: ${errorStr.substring(0, 150)}`);
       }
     } finally {
       setIsCreating(false);
     }
+  };
+
+  // Register with World ID verification
+  const register = async () => {
+    if (!MiniKit.isInstalled()) {
+      setMessage('Please open this app in World App');
+      return;
+    }
+
+    if (!isVerified || !verificationProof) {
+      setMessage('Please complete World ID verification first');
+      startWorldIDVerification();
+      return;
+    }
+
+    // If already verified, proceed with registration
+    await proceedWithRegistration(verificationProof);
+  };
+
+  // Start World ID verification for registration
+  const startWorldIDVerification = () => {
+    if (!MiniKit.isInstalled()) return;
+
+    if (!walletAddress) {
+      setMessage('Wallet address not available. Please try again.');
+      return;
+    }
+
+    setMessage('Please complete World ID verification...');
+
+    const action = process.env.NEXT_PUBLIC_WLD_ACTION || 'verify-human';
+
+    const verifyPayload = {
+      action,
+      signal: walletAddress, // Use wallet address as signal
+      verification_level: VerificationLevel.Orb, // Use Orb for mainnet reliability
+    };
+
+    console.log('[RegistrationView] Requesting World ID verification with:', verifyPayload);
+    MiniKit.commands.verify(verifyPayload);
   };
 
   // Show loading spinner
@@ -181,10 +355,10 @@ export function RegistrationView() {
               <UserCircle className="w-full h-full text-blue-600" />
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-              Register for ADS Platform
+              Register with World ID
             </h1>
             <p className="text-sm text-gray-600">
-              Join the decentralized advertising platform
+              Verify your humanity to earn rewards by clicking ads
             </p>
           </div>
 
@@ -195,16 +369,16 @@ export function RegistrationView() {
                 <li>• Browse and click on ads to earn WLD rewards</li>
                 <li>• Claim your accumulated rewards</li>
                 <li>• Place your own ads to reach users</li>
-                <li>• Participate in fair, transparent advertising</li>
+                <li>• One verification per person ensures fairness</li>
               </ul>
             </div>
 
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-3 rounded-lg border-2 border-purple-200">
-              <h3 className="font-semibold text-sm mb-2 text-purple-800">⚡ Hackathon Demo</h3>
+              <h3 className="font-semibold text-sm mb-2 text-purple-800">🔒 Privacy Protected</h3>
               <ul className="text-xs text-gray-700 space-y-1">
-                <li>• Simple one-click registration</li>
-                <li>• Manual cycle progression for testing</li>
-                <li>• Full advertiser and clicker functionality</li>
+                <li>• World ID proves you're human without revealing identity</li>
+                <li>• Zero-knowledge proof protects your privacy</li>
+                <li>• No personal information is shared or stored</li>
               </ul>
             </div>
           </div>
@@ -223,7 +397,7 @@ export function RegistrationView() {
             ) : (
               <span className="flex items-center justify-center">
                 <UserCircle className="w-4 h-4 mr-2" />
-                Register Now
+                Verify & Register
               </span>
             )}
           </Button>

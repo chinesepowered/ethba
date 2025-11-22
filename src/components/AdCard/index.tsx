@@ -3,7 +3,7 @@
 import { formatUnits } from 'ethers';
 import { useENS } from '@/hooks/useENS';
 import { AdSlot } from '@/hooks/useADSContract';
-import { OpenNewWindow, User, Check } from 'iconoir-react';
+import { User, Check } from 'iconoir-react';
 
 interface AdCardProps {
   ad: AdSlot;
@@ -76,18 +76,6 @@ export function AdCard({
 
       {/* Actions */}
       <div className="flex gap-3">
-        {ad.actionUrl && (
-          <a
-            href={ad.actionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
-          >
-            Visit Site
-            <OpenNewWindow className="w-4 h-4" />
-          </a>
-        )}
-
         {canClaim && !hasClaimed && (
           <button
             onClick={onClaim}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useADSContract } from '@/hooks/useADSContract';
-import { Globe, MapPin, Phone, Monitor, Apple, Robot, InfoCircle } from 'iconoir-react';
+import { Globe, MapPin, Phone, Apple, InfoCircle } from 'iconoir-react';
 import { parseEther, formatEther } from 'viem';
 
 interface AdvertiserViewProps {
@@ -16,13 +16,13 @@ const SLOT_TYPES = [
   { value: 3, label: 'EU Only', description: 'EU IP addresses only', icon: <MapPin className="w-5 h-5" /> },
   { value: 4, label: 'Asia Only', description: 'Asia IP addresses only', icon: <MapPin className="w-5 h-5" /> },
   { value: 5, label: 'Mobile Only', description: 'Mobile devices only', icon: <Phone className="w-5 h-5" /> },
-  { value: 6, label: 'Desktop Only', description: 'Desktop devices only', icon: <Monitor className="w-5 h-5" /> },
+  { value: 6, label: 'Desktop Only', description: 'Desktop devices only', icon: <InfoCircle className="w-5 h-5" /> },
   { value: 7, label: 'iOS Only', description: 'iOS devices only', icon: <Apple className="w-5 h-5" /> },
-  { value: 8, label: 'Android Only', description: 'Android devices only', icon: <Robot className="w-5 h-5" /> },
+  { value: 8, label: 'Android Only', description: 'Android devices only', icon: <Phone className="w-5 h-5" /> },
   { value: 9, label: 'Custom', description: 'Custom targeting', icon: <InfoCircle className="w-5 h-5" /> },
 ];
 
-export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
+export function AdvertiserView({}: AdvertiserViewProps) {
   const { currentCycle, currentAds, placeAdBid } = useADSContract();
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [bidding, setBidding] = useState(false);

@@ -49,7 +49,7 @@ export function ClaimView({ userAddress }: ClaimViewProps) {
     try {
       await claimReward(cycle, slot);
       await loadClaims();
-      await refreshData(userAddress);
+      await refreshData();
       alert('Reward claimed successfully!');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to claim reward';
@@ -68,7 +68,7 @@ export function ClaimView({ userAddress }: ClaimViewProps) {
       }
     }
     await loadClaims();
-    await refreshData(userAddress);
+    await refreshData();
     alert('All rewards claimed!');
   };
 

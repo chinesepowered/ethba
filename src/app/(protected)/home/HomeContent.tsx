@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { AdvertiserView } from '@/components/views/AdvertiserView';
 import { AdView } from '@/components/views/AdView';
 import { ClaimView } from '@/components/views/ClaimView';
-import { NavArrowRight, Wallet, MouseButtonRight, Gift } from 'iconoir-react';
+import { Wallet, MouseButtonRight, Gift } from 'iconoir-react';
 
 interface HomeContentProps {
   userAddress?: string;

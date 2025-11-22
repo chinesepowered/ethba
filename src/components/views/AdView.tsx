@@ -1,24 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
+import Image from 'next/image';
 import { useADSContract } from '@/hooks/useADSContract';
-import { Refresh, InfoCircle, Globe, MapPin, Phone, Monitor, Apple, Robot } from 'iconoir-react';
+import { Refresh, InfoCircle, Globe, MapPin, Phone, Apple } from 'iconoir-react';
 import { formatEther } from 'viem';
 
 interface AdViewProps {
   userAddress: string;
 }
 
-const SLOT_TYPE_ICONS: Record<number, JSX.Element> = {
+const SLOT_TYPE_ICONS: Record<number, ReactElement> = {
   0: <Globe className="w-4 h-4" />,  // GLOBAL
   1: <MapPin className="w-4 h-4" />, // US_ONLY
   2: <MapPin className="w-4 h-4" />, // AR_ONLY
   3: <MapPin className="w-4 h-4" />, // EU_ONLY
   4: <MapPin className="w-4 h-4" />, // ASIA_ONLY
   5: <Phone className="w-4 h-4" />,  // MOBILE_ONLY
-  6: <Monitor className="w-4 h-4" />, // DESKTOP_ONLY
+  6: <InfoCircle className="w-4 h-4" />, // DESKTOP_ONLY
   7: <Apple className="w-4 h-4" />,  // IOS_ONLY
-  8: <Robot className="w-4 h-4" />,  // ANDROID_ONLY
+  8: <Phone className="w-4 h-4" />,  // ANDROID_ONLY
   9: <InfoCircle className="w-4 h-4" />, // CUSTOM
 };
 
@@ -34,7 +36,7 @@ export function AdView({ userAddress }: AdViewProps) {
   const [userEligibility, setUserEligibility] = useState<{ [key: number]: boolean }>({});
 
   useEffect(() => {
-    refreshData(userAddress);
+    refreshData();
     checkRegistration();
     checkEligibility();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,7 +87,7 @@ export function AdView({ userAddress }: AdViewProps) {
       await recordClick(currentCycle, slotIndex, nonce, timestamp, signature);
 
       // Refresh data
-      await refreshData(userAddress);
+      await refreshData();
       alert('Click recorded! You can claim your reward after the cycle ends.');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to record click';
@@ -121,7 +123,7 @@ export function AdView({ userAddress }: AdViewProps) {
           </p>
         </div>
         <button
-          onClick={() => refreshData(userAddress)}
+          onClick={() => refreshData()}
           disabled={loading}
           className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
         >
@@ -182,9 +184,11 @@ export function AdView({ userAddress }: AdViewProps) {
 
                 {/* Ad Image */}
                 {ad.imageUrl && (
-                  <img
+                  <Image
                     src={ad.imageUrl}
                     alt={ad.name}
+                    width={400}
+                    height={128}
                     className="w-full h-32 object-cover rounded-lg mb-3"
                   />
                 )}
@@ -198,7 +202,7 @@ export function AdView({ userAddress }: AdViewProps) {
                   <span>{ad.totalClicks} clicks</span>
                   <span>
                     Est. {ad.totalClicks > 0
-                      ? formatEther((ad.bidAmount * 95n) / 100n / BigInt(ad.totalClicks + 1))
+                      ? formatEther((ad.bidAmount * 95n) / 100n / (ad.totalClicks + 1n))
                       : formatEther((ad.bidAmount * 95n) / 100n)
                     } WLD/click
                   </span>

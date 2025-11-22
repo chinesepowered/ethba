@@ -1,6 +1,6 @@
 import ADS_ABI_JSON from './ads-abi.json';
 
-export const ADS_ABI = ADS_ABI_JSON as const;
+export const ADS_ABI = ADS_ABI_JSON;
 
 export const ERC20_ABI = [
   'function balanceOf(address account) external view returns (uint256)',

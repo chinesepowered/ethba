@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createPublicClient, http, type Address } from 'viem';
+import { createPublicClient, http, type Address, type PublicClient, type Transport, type Chain } from 'viem';
 import { worldchain } from 'viem/chains';
 import { MiniKit } from '@worldcoin/minikit-js';
 import { CONTRACTS, CHAIN_CONFIG } from '@/config/contracts';
@@ -32,7 +32,7 @@ export interface ClaimableRewards {
 }
 
 export function useADSContract() {
-  const [publicClient, setPublicClient] = useState<ReturnType<typeof createPublicClient> | null>(null);
+  const [publicClient, setPublicClient] = useState<PublicClient<Transport, Chain> | null>(null);
   const [currentCycle, setCurrentCycle] = useState<bigint | null>(null);
   const [currentAds, setCurrentAds] = useState<AdSlot[]>([]);
   const [poolBalances, setPoolBalances] = useState<PoolBalances | null>(null);
@@ -43,12 +43,12 @@ export function useADSContract() {
     const client = createPublicClient({
       chain: worldchain,
       transport: http(CHAIN_CONFIG.rpcUrl),
-    });
+    }) as PublicClient<Transport, Chain>;
     setPublicClient(client);
   }, []);
 
   // Fetch current cycle and ads
-  const refreshData = async (userAddress?: string) => {
+  const refreshData = async () => {
     if (!publicClient) return;
 
     setLoading(true);
@@ -199,15 +199,6 @@ export function useADSContract() {
     // Create Permit2 permit structure (World Mini Apps format - all strings)
     const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
     const nonce = Date.now();
-
-    const permit = {
-      permitted: {
-        token: CONTRACTS.WLD_TOKEN,
-        amount: bidAmount.toString(),
-      },
-      nonce: nonce.toString(),
-      deadline: deadline.toString(),
-    };
 
     // Use MiniKit's sendTransaction with Permit2 placeholder
     // MiniKit will automatically replace PERMIT2_SIGNATURE_PLACEHOLDER_0 with the actual signature

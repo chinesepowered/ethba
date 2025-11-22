@@ -270,8 +270,8 @@
       ]
     },
     "C:\\code\\ethba\\contracts\\ADSDemo.sol": {
-      "lastModificationDate": 1763841401966,
-      "contentHash": "8f8a41a2b8455bb7fd88cd41096b2ae0",
+      "lastModificationDate": 1763852618107,
+      "contentHash": "3aae1913fcc320688eae8997b8f7e1b9",
       "sourceName": "contracts/ADSDemo.sol",
       "solcConfig": {
         "version": "0.8.20",

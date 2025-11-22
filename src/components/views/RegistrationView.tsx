@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Spinner } from '@worldcoin/mini-apps-ui-kit-react';
-import { MiniKit, VerificationLevel, MiniAppVerifyActionPayload, ISuccessResult, ResponseEvent } from '@worldcoin/minikit-js';
-import { Address, decodeAbiParameters } from 'viem';
+import { MiniKit } from '@worldcoin/minikit-js';
+import { Address } from 'viem';
 import { UserCircle } from 'iconoir-react';
 import { useTabs } from '@/providers/TabContext';
 import { useSession } from 'next-auth/react';
 import { useADSClient } from '@/hooks/useADSClient';
 import { CONTRACTS } from '@/config/contracts';
-import { ADS_DEMO_ABI } from '@/config/abi';
+import ADS_ABI from '@/config/ads-abi.json';
 
 export function RegistrationView() {
   const [isRegistered, setIsRegistered] = useState(false);
@@ -22,14 +22,6 @@ export function RegistrationView() {
   // Following proven pattern - wallet address is stored as user.id
   const walletAddress = session?.user?.id as Address | undefined;
   const client = useADSClient();
-
-  // World ID verification state
-  const [isVerified, setIsVerified] = useState(false);
-  const [verificationProof, setVerificationProof] = useState<{
-    root: string;
-    nullifierHash: string;
-    proof: string[] | string;
-  } | null>(null);
 
   // Check for cached World ID verification
   useEffect(() => {
@@ -114,7 +106,7 @@ export function RegistrationView() {
 
       const registered = await client.readContract({
         address: CONTRACTS.ADS_DEMO,
-        abi: ADS_DEMO_ABI,
+        abi: ADS_ABI,
         functionName: 'registered',
         args: [walletAddress],
       }) as boolean;
@@ -147,6 +139,27 @@ export function RegistrationView() {
     try {
       console.log('[RegistrationView] Starting registration with proof:', verificationData);
       setIsCreating(true);
+      setMessage('Checking registration status...');
+
+      // First check if already registered
+      if (walletAddress) {
+        const alreadyRegistered = await client.readContract({
+          address: CONTRACTS.ADS_DEMO,
+          abi: ADS_ABI,
+          functionName: 'registered',
+          args: [walletAddress],
+        }) as boolean;
+
+        if (alreadyRegistered) {
+          console.log('[RegistrationView] User already registered on-chain');
+          setMessage('Already registered!');
+          localStorage.setItem(`ads_registered_${walletAddress}`, 'true');
+          setIsRegistered(true);
+          setIsCreating(false);
+          return;
+        }
+      }
+
       setMessage('Registering with World ID...');
 
       // Format proof according to World ID docs
@@ -192,23 +205,30 @@ export function RegistrationView() {
         return;
       }
 
+      // Pass root and nullifierHash as strings - MiniKit converts automatically
+      console.log('[RegistrationView] Contract address:', CONTRACTS.ADS_DEMO);
+      console.log('[RegistrationView] ABI has register function:',
+        ADS_ABI.some((item: any) => item.name === 'register' && item.type === 'function')
+      );
       console.log('[RegistrationView] Calling register with:', {
         walletAddress,
         root: verificationData.root,
         nullifierHash: verificationData.nullifierHash,
-        proof: formattedProof,
+        proof: formattedProof.map(p => p.toString()),
+        proofType: typeof formattedProof,
+        argsLength: 4,
       });
 
       const { finalPayload } = await MiniKit.commandsAsync.sendTransaction({
         transaction: [{
           address: CONTRACTS.ADS_DEMO,
-          abi: ADS_DEMO_ABI,
+          abi: ADS_ABI,
           functionName: 'register',
           args: [
             walletAddress, // signal should be the wallet address
-            verificationData.root,
-            verificationData.nullifierHash,
-            formattedProof,
+            verificationData.root, // MiniKit converts string to uint256
+            verificationData.nullifierHash, // MiniKit converts string to uint256
+            formattedProof, // Already formatted as bigint[8]
           ],
         }],
       });
@@ -225,7 +245,19 @@ export function RegistrationView() {
         // Refresh data after a short delay
         setTimeout(() => checkRegistration(), 3000);
       } else {
-        const errorMessage = (finalPayload as { error?: string })?.error || 'Failed to register';
+        console.error('[RegistrationView] Transaction failed:', finalPayload);
+        const errorPayload = finalPayload as any;
+        const errorMessage = errorPayload?.error || errorPayload?.error_code || 'Failed to register';
+
+        console.error('[RegistrationView] Error details:', {
+          error: errorPayload?.error,
+          error_code: errorPayload?.error_code,
+          message: errorPayload?.message,
+          description: errorPayload?.description,
+          details: errorPayload?.details,
+          full: JSON.stringify(errorPayload, null, 2),
+        });
+
         if (errorMessage.includes('already registered') || errorMessage.includes('AlreadyRegistered')) {
           setMessage('Already registered! Loading...');
           if (walletAddress) {
@@ -233,12 +265,16 @@ export function RegistrationView() {
           }
           setIsRegistered(true);
           setTimeout(() => checkRegistration(), 1000);
+        } else if (errorMessage.includes('simulation')) {
+          setMessage(`Transaction simulation failed. This might be a proof verification error. Check console for details.`);
         } else {
-          setMessage(errorMessage);
+          setMessage(`Registration failed: ${errorMessage}`);
         }
       }
     } catch (error: unknown) {
-      console.error('Failed to register:', error);
+      console.error('[RegistrationView] Failed to register (catch block):', error);
+      console.error('[RegistrationView] Error object:', JSON.stringify(error, null, 2));
+
       const errorStr = error?.toString() || '';
       if (errorStr.includes('already registered') || errorStr.includes('AlreadyRegistered')) {
         setMessage('Already registered! Loading...');
@@ -247,8 +283,10 @@ export function RegistrationView() {
           localStorage.setItem(`ads_registered_${walletAddress}`, 'true');
         }
         setTimeout(() => checkRegistration(), 1000);
+      } else if (errorStr.includes('simulation')) {
+        setMessage(`Transaction simulation failed. Check console for full error details.`);
       } else {
-        setMessage(`Failed to register. Error: ${errorStr}`);
+        setMessage(`Failed to register. Error: ${errorStr.substring(0, 150)}`);
       }
     } finally {
       setIsCreating(false);
@@ -288,9 +326,10 @@ export function RegistrationView() {
     const verifyPayload = {
       action,
       signal: walletAddress, // Use wallet address as signal
-      verification_level: VerificationLevel.Device, // Use Device for testing
+      verification_level: VerificationLevel.Orb, // Use Orb for mainnet reliability
     };
 
+    console.log('[RegistrationView] Requesting World ID verification with:', verifyPayload);
     MiniKit.commands.verify(verifyPayload);
   };
 

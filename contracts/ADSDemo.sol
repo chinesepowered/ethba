@@ -158,10 +158,23 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     }
 
     // ============ Registration ============
-    // HACKATHON VERSION: No World ID verification for demo simplicity
 
-    function register() external nonReentrant {
+    function register(
+        address signal,
+        uint256 root,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
+    ) external nonReentrant {
         if (registered[msg.sender]) revert AlreadyRegistered();
+
+        worldId.verifyProof(
+            root,
+            groupId,
+            abi.encodePacked(signal).hashToField(),
+            nullifierHash,
+            externalNullifier,
+            proof
+        );
 
         registered[msg.sender] = true;
         emit UserRegistered(msg.sender);

@@ -46,9 +46,12 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     
     // Reward pool (WLD available for swaps)
     uint256 public rewardPool;
-    
+
     // Locked funds (bids for active/future ads that can't be swapped yet)
     uint256 public lockedFunds;
+
+    // Accumulated platform fees (owner can withdraw)
+    uint256 public accumulatedFees;
     
     // Track last finalized day to enable automatic daily transitions
     uint256 public lastFinalizedDay;
@@ -119,6 +122,7 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     event TokensSwapped(address indexed user, uint256 adsAmount, uint256 wldAmount);
     event DayTransitioned(uint256 indexed newDay);
     event FundsUnlocked(uint256 indexed day, uint256 amount);
+    event FeesWithdrawn(address indexed owner, uint256 amount);
     
     // ============================================
     // ERRORS
@@ -305,14 +309,13 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
             
             // Unlock from bidding locked funds
             lockedFunds -= winningBid.amount;
-            
+
             // Lock the reward amount (will unlock when day ends)
             lockedFunds += rewardAmount;
-            
-            // Transfer fee to owner immediately
-            bool feeSuccess = WLD.transfer(owner(), feeAmount);
-            if (!feeSuccess) revert TransferFailed();
-            
+
+            // Accumulate fee (owner can withdraw later via withdrawFees)
+            accumulatedFees += feeAmount;
+
             emit AdSlotFinalized(day, slotIndex, winningBid.advertiser, winningBid.amount);
         }
     }
@@ -633,7 +636,22 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
         platformFeePercent = _feePercent;
         emit PlatformFeeUpdated(_feePercent);
     }
-    
+
+    /**
+     * @notice Withdraw accumulated platform fees
+     */
+    function withdrawFees() external onlyOwner nonReentrant {
+        uint256 amount = accumulatedFees;
+        if (amount == 0) revert("No fees to withdraw");
+
+        accumulatedFees = 0;
+
+        bool success = WLD.transfer(owner(), amount);
+        if (!success) revert TransferFailed();
+
+        emit FeesWithdrawn(owner(), amount);
+    }
+
     /**
      * @notice Emergency withdraw WLD (only owner)
      */
@@ -755,12 +773,14 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
      * @notice Get pool balances
      * @return availablePool WLD available in reward pool
      * @return locked WLD locked (for active/future ads)
+     * @return fees Accumulated platform fees
      */
     function getPoolBalances() external view returns (
         uint256 availablePool,
-        uint256 locked
+        uint256 locked,
+        uint256 fees
     ) {
-        return (rewardPool, lockedFunds);
+        return (rewardPool, lockedFunds, accumulatedFees);
     }
     
     /**

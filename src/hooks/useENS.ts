@@ -1,27 +1,30 @@
 import { useEffect, useState } from 'react';
-import { ethers } from 'ethers';
+import { createPublicClient, http, isAddress } from 'viem';
+import { mainnet, baseSepolia } from 'viem/chains';
 
 /**
- * Cross-Chain Name Resolution with Arbitrum One
+ * L2 Primary Name Resolution with Base Sepolia
  *
- * Demonstrates cross-chain trust by resolving names from Arbitrum
- * while the main app runs on World Chain. This shows how identity
- * and reputation from other chains can carry over.
+ * Implements ENS L2 Primary Names on Base Sepolia testnet.
+ * Per ENS L2 Primary Names specification (Aug 2025+):
+ * - Resolution ALWAYS starts from Ethereum Mainnet (L1)
+ * - Uses coinType parameter to specify L2 chain for reverse records
+ * - Supports bi-directional verification (reverse + forward)
  *
  * Per ENS best practices:
- * 1. Perform reverse lookup (address -> name)
- * 2. Verify with forward lookup (name -> address)
+ * 1. Perform reverse lookup (address -> name) on L1 with L2 coinType
+ * 2. Verify with forward lookup (name -> address) on L1 with L2 coinType
  * 3. Only display if addresses match (prevents spoofing)
  *
- * Uses Arbitrum One for name resolution
- * World ID provides sybil resistance, Arbitrum names provide identity
+ * Base Sepolia testnet chain ID: 84532
+ * World ID provides sybil resistance, ENS names provide identity
  */
 export function useENS(address: string | undefined) {
   const [ensName, setEnsName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!address || !ethers.isAddress(address)) {
+    if (!address || !isAddress(address)) {
       setEnsName(null);
       return;
     }
@@ -31,15 +34,24 @@ export function useENS(address: string | undefined) {
     async function lookupAndVerify() {
       setLoading(true);
       try {
-        // Use Arbitrum One for cross-chain name resolution
-        // Arbitrum One RPC (public endpoint)
-        const provider = new ethers.JsonRpcProvider(
-          'https://arb1.arbitrum.io/rpc'
-        );
+        // CRITICAL: ENS resolution ALWAYS starts from L1 mainnet
+        const client = createPublicClient({
+          chain: mainnet,
+          transport: http(),
+        });
+
+        // Convert Base Sepolia chain ID to coinType for ENSIP-11
+        // Formula: coinType = 0x80000000 | chainId
+        // Base Sepolia chain ID: 84532
+        const baseSepoliaCoinType = BigInt((0x80000000 | baseSepolia.id) >>> 0);
 
         // Step 1: Reverse lookup (address -> name)
-        // This checks if the address has set a reverse record on Arbitrum
-        const reverseName = await provider.lookupAddress(address!);
+        // Gets the primary name set on Base Sepolia reverse registrar
+        const reverseName = await client.getEnsName({
+          address: address as `0x${string}`,
+          coinType: baseSepoliaCoinType, // CRITICAL: Specify Base Sepolia for L2 primary name
+          universalResolverAddress: '0xc0497E381f536Be9ce14B0dD3817cBcAe57d2F62',
+        });
 
         if (!reverseName || cancelled) {
           setEnsName(null);
@@ -49,26 +61,30 @@ export function useENS(address: string | undefined) {
 
         // Step 2: Forward lookup verification (name -> address)
         // CRITICAL: Prevents spoofing attacks
-        // Verify the name actually resolves back to this address
-        const resolvedAddress = await provider.resolveName(reverseName);
+        // Verify the name resolves back to this address on Base Sepolia
+        const resolvedAddress = await client.getEnsAddress({
+          name: reverseName,
+          coinType: baseSepoliaCoinType,
+          universalResolverAddress: '0xc0497E381f536Be9ce14B0dD3817cBcAe57d2F62',
+        });
 
         if (!cancelled) {
           // Step 3: Verify addresses match (case-insensitive)
           if (
             resolvedAddress &&
-            resolvedAddress.toLowerCase() === address!.toLowerCase()
+            resolvedAddress.toLowerCase() === address.toLowerCase()
           ) {
             setEnsName(reverseName);
           } else {
             // Verification failed - don't display name
             console.warn(
-              `Arbitrum name verification failed for ${address}: reverse=${reverseName}, forward=${resolvedAddress}`
+              `Base Sepolia name verification failed for ${address}: reverse=${reverseName}, forward=${resolvedAddress}`
             );
             setEnsName(null);
           }
         }
       } catch (error) {
-        console.error('Arbitrum name lookup failed:', error);
+        console.error('Base Sepolia ENS lookup failed:', error);
         if (!cancelled) {
           setEnsName(null);
         }

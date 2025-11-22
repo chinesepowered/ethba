@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AdvertiserView } from '@/components/views/AdvertiserView';
 import { AdView } from '@/components/views/AdView';
 import { ClaimView } from '@/components/views/ClaimView';
+import { CycleManager } from '@/components/CycleManager';
 import { Wallet, MouseButtonRight, Gift } from 'iconoir-react';
 
 interface HomeContentProps {
@@ -25,6 +26,9 @@ export function HomeContent({ userAddress }: HomeContentProps) {
 
   return (
     <div className="w-full max-w-6xl space-y-6">
+      {/* Cycle Manager */}
+      <CycleManager />
+
       {/* View Navigation */}
       <div className="flex gap-2 p-2 bg-gray-100 rounded-xl">
         <button

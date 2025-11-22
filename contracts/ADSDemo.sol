@@ -9,13 +9,13 @@ import "@worldcoin/world-id-contracts/src/libraries/ByteHasher.sol";
 
 /**
  * @title ADS Platform Demo - Proportional Tranche Distribution
- * @notice DEMO VERSION with 1-minute cycles and device-level verification
+ * @notice DEMO VERSION with manual cycle progression and device-level verification
  * @dev Users click ads and claim proportional share of advertiser bids
  *
  * Demo Features:
- * - 1-minute cycles (instead of 24 hours)
+ * - Manual cycle progression (anyone can trigger)
  * - Device-level World ID (groupId = 0)
- * - Manual cycle ending for easier demonstrations
+ * - No time-based cycles - full control over progression
  *
  * World Chain Compatibility:
  * - Uses Permit2 for advertiser bids (no approve() needed)
@@ -88,11 +88,11 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     uint256 internal immutable externalNullifier;
     uint256 internal immutable groupId = 0; // DEMO: Device verification
 
-    uint256 public constant CYCLE_DURATION = 1 minutes; // DEMO: 1 minute cycles
     uint256 public constant AD_SLOTS_PER_CYCLE = 10;
     uint256 public constant PLATFORM_FEE_BPS = 500; // 5%
     uint256 public constant CLAIM_DEADLINE = 14 days;
 
+    uint256 public currentCycle; // DEMO: Manual cycle counter
     uint256 public lastFinalizedCycle;
 
     // Mappings
@@ -194,7 +194,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
         bytes calldata signature
     ) external nonReentrant {
         if (bannedAdvertisers[msg.sender]) revert AdvertiserIsBanned();
-        if (cycle != _getCurrentCycle()) revert InvalidCycle();
+        if (cycle != currentCycle) revert InvalidCycle();
         if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
 
         AdSlot storage slot = adSlots[cycle][slotIndex];
@@ -260,7 +260,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
         bytes calldata signature
     ) external nonReentrant {
         if (!registered[msg.sender]) revert NotRegistered();
-        if (cycle >= _getCurrentCycle()) revert InvalidCycle();
+        if (cycle >= currentCycle) revert InvalidCycle();
         if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
 
         AdSlot storage slot = adSlots[cycle][slotIndex];
@@ -361,34 +361,29 @@ contract ADSDemo is Ownable, ReentrancyGuard {
 
     // ============ Cycle Management ============
 
-    function finalizeCycle(uint256 cycle) external {
-        if (cycle >= _getCurrentCycle()) revert InvalidCycle();
-        if (cycle != lastFinalizedCycle + 1) revert InvalidCycle();
-
-        for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
-            _finalizeAdSlot(cycle, i);
-        }
-
-        lastFinalizedCycle = cycle;
-        emit CycleFinalized(cycle);
-    }
-
     /**
-     * @notice DEMO: Manually finalize current cycle for easier demonstrations
-     * @dev Allows owner to advance cycles without waiting
+     * @notice DEMO: Manually progress to next cycle - can be called by anyone
+     * @dev Finalizes current cycle and increments counter
      */
-    function forceFinalizeCycle() external onlyOwner {
-        uint256 currentCycle = _getCurrentCycle();
-        if (currentCycle == 0) return;
-
-        uint256 cycleToFinalize = currentCycle - 1;
-        if (cycleToFinalize == lastFinalizedCycle) return; // Already finalized
-
-        for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
-            _finalizeAdSlot(cycleToFinalize, i);
+    function progressCycle() external nonReentrant {
+        if (currentCycle == 0) {
+            // First cycle, just increment
+            currentCycle = 1;
+            emit CycleFinalized(0);
+            return;
         }
 
-        lastFinalizedCycle = cycleToFinalize;
+        // Finalize the previous cycle if not already done
+        uint256 cycleToFinalize = currentCycle - 1;
+        if (cycleToFinalize > lastFinalizedCycle) {
+            for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
+                _finalizeAdSlot(cycleToFinalize, i);
+            }
+            lastFinalizedCycle = cycleToFinalize;
+        }
+
+        // Move to next cycle
+        currentCycle++;
         emit CycleFinalized(cycleToFinalize);
     }
 
@@ -420,15 +415,10 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     // ============ View Functions ============
 
     function getCurrentCycle() external view returns (uint256) {
-        return _getCurrentCycle();
-    }
-
-    function _getCurrentCycle() internal view returns (uint256) {
-        return block.timestamp / CYCLE_DURATION;
+        return currentCycle;
     }
 
     function getCurrentAds() external view returns (AdSlot[] memory) {
-        uint256 currentCycle = _getCurrentCycle();
         AdSlot[] memory ads = new AdSlot[](AD_SLOTS_PER_CYCLE);
 
         for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
@@ -462,7 +452,6 @@ contract ADSDemo is Ownable, ReentrancyGuard {
         uint256[] memory slots,
         uint256[] memory amounts
     ) {
-        uint256 currentCycle = _getCurrentCycle();
         uint256 maxClaims = currentCycle * AD_SLOTS_PER_CYCLE;
 
         uint256[] memory tempCycles = new uint256[](maxClaims);

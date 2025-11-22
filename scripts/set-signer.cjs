@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
 async function main() {
-  const ADS_DEMO_ADDRESS = "0x0A027767aC1e4aA5474A1B98C3eF730C3994E67b";
+  const ADS_DEMO_ADDRESS = "0xB611e768b880f53C49786BC0f1B97A9291701aaf";
   const SIGNER_ADDRESS = "0x59876B0c53Bd8af33EFa3157dfcFDA4131a5A2b0";
 
   console.log("Setting backend signer...");

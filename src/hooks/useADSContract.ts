@@ -248,6 +248,27 @@ export function useADSContract() {
     }
   };
 
+  // Progress to next cycle (anyone can call)
+  const progressCycle = async () => {
+    const result = await MiniKit.commandsAsync.sendTransaction({
+      transaction: [
+        {
+          address: CONTRACTS.ADS_DEMO,
+          abi: ADS_DEMO_ABI,
+          functionName: 'progressCycle',
+          args: [],
+        },
+      ],
+    });
+
+    if (result.finalPayload.status === 'success') {
+      await refreshData(); // Refresh data after cycle progression
+      return result.finalPayload;
+    } else {
+      throw new Error(result.finalPayload.error_code || 'Transaction failed');
+    }
+  };
+
   return {
     publicClient,
     currentCycle,
@@ -261,5 +282,6 @@ export function useADSContract() {
     recordClick,
     claimReward,
     placeAdBid,
+    progressCycle,
   };
 }

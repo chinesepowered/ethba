@@ -13,9 +13,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
     "@worldcoin/mini-apps-ui-kit-react": "^1.0.2",
     "@worldcoin/minikit-js": "latest",
     "@worldcoin/minikit-react": "latest",
+    "@worldcoin/world-id-contracts": "^0.1.1",
     "clsx": "^2.1.1",
     "ethers": "^6.15.0",
     "iconoir-react": "^7.11.0",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -35,6 +38,7 @@
     "eruda": "^3.4.1",
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
+    "hardhat": "^2.27.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

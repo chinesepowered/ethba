@@ -128,18 +128,29 @@ ngrok http 3000
 
 See [DEPLOY.md](./DEPLOY.md) for complete deployment instructions.
 
-## Contract Variants
+## Architecture Versions
 
-### Production (`ADS.sol`)
-- **Cycles**: 24 hours (daily)
+### v1: Token-Based (Current)
+Users earn ADS tokens and swap for WLD from reward pool.
+
+**Contracts**: `ADS.sol` (production), `ADSDemo.sol` (demo)
+- **Cycles**: 24 hours (production) or 1 minute (demo)
+- **Verification**: Orb-level (production) or device-level (demo)
+- **Rewards**: Dynamic ADS token minting based on geo-IP and device
+- **Distribution**: Proportional swap from reward pool
+
+### v2: Proportional Tranche (Alternative)
+Users record clicks and claim proportional share of advertiser bids.
+
+**Contract**: `ADSv2.sol`
+- **Cycles**: 24 hours
 - **Verification**: Orb-level World ID
-- **Use Case**: Real platform deployment
+- **Rewards**: Direct WLD distribution (no token)
+- **Distribution**: Equal split among clickers within targeting cohort
+- **Targeting**: Built-in slot types (US-only, AR-only, iOS-only, etc.)
+- **Simplicity**: 50% less code, more predictable economics
 
-### Demo (`ADSDemo.sol`)
-- **Cycles**: 1 minute (rapid testing)
-- **Verification**: Device-level World ID
-- **Seeding**: Pre-populated test data
-- **Use Case**: Development and demonstrations
+**See**: [V1_VS_V2_COMPARISON.md](./V1_VS_V2_COMPARISON.md) and [ARCHITECTURE_V2.md](./ARCHITECTURE_V2.md) for detailed comparison.
 
 ## Architecture Highlights
 
@@ -189,11 +200,21 @@ Advertisers compete for slots by placing WLD bids. Higher bids displace lower on
 
 ## Documentation
 
-- **[PROJECT.md](./PROJECT.md)**: Complete technical documentation for developers
+### Getting Started
+- **[README.md](./README.md)**: This file - project overview and marketing pitch
 - **[DEPLOY.md](./DEPLOY.md)**: Step-by-step deployment guide
 - **[OASIS_QUICKSTART.md](./OASIS_QUICKSTART.md)**: Deploy to Oasis ROFL TEE in 10 minutes
+- **[DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)**: Final checklist before deploying
+
+### Technical Documentation
+- **[PROJECT.md](./PROJECT.md)**: Complete v1 technical documentation (token-based)
+- **[ARCHITECTURE_V2.md](./ARCHITECTURE_V2.md)**: v2 architecture (proportional tranche)
+- **[V1_VS_V2_COMPARISON.md](./V1_VS_V2_COMPARISON.md)**: Detailed comparison of both versions
+
+### Code & History
 - **Contracts**: See `contracts/` directory for Solidity source
 - **Backend**: See `backend/` directory for TEE signing service
+- **[CHANGELOG.md](./CHANGELOG.md)**: Complete change history
 
 ## Support & Community
 

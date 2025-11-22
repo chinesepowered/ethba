@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,191 +8,131 @@ import "@worldcoin/world-id-contracts/src/interfaces/IWorldID.sol";
 import "@worldcoin/world-id-contracts/src/libraries/ByteHasher.sol";
 
 /**
- * @title ADSDemo - Ads Token Platform (DEMO VERSION)
- * @dev DEMO variant with:
- *      - Device-level World ID verification (groupId = 0)
- *      - 1 minute cycles instead of daily
- *      - Deployer pre-seeded with 5 ADS tokens
- *      - Same mechanics as production contract otherwise
+ * @title ADS Platform Demo - Proportional Tranche Distribution
+ * @notice DEMO VERSION with 1-minute cycles and device-level verification
+ * @dev Users click ads and claim proportional share of advertiser bids
+ *
+ * Demo Features:
+ * - 1-minute cycles (instead of 24 hours)
+ * - Device-level World ID (groupId = 0)
+ * - Manual cycle ending for easier demonstrations
  */
-contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
+contract ADSDemo is Ownable, ReentrancyGuard {
     using ByteHasher for bytes;
 
-    // ============================================
-    // CONSTANTS & IMMUTABLES
-    // ============================================
+    // ============ Types ============
 
-    IWorldID public immutable worldId;
-    uint256 internal immutable externalNullifier;
-    uint256 internal immutable groupId = 0; // DEMO: Device verified users (was 1 for orb)
+    enum SlotType {
+        GLOBAL,         // Anyone can claim
+        US_ONLY,        // US IP addresses only
+        AR_ONLY,        // Argentina IP addresses only
+        EU_ONLY,        // EU IP addresses only
+        ASIA_ONLY,      // Asia IP addresses only
+        MOBILE_ONLY,    // Mobile devices only
+        DESKTOP_ONLY,   // Desktop devices only
+        IOS_ONLY,       // iOS devices only
+        ANDROID_ONLY,   // Android devices only
+        CUSTOM          // Custom targeting
+    }
 
-    IERC20 public immutable WLD;
-
-    uint256 public constant SIGNATURE_VALIDITY = 10 minutes;
-    uint256 public constant MIN_BID = 0.01 * 10**18; // 0.01 WLD minimum
-    uint256 public constant MIN_BID_INCREMENT_PERCENT = 5; // 5% increase required
-    uint256 public constant BID_INCREMENT_PRECISION = 0.01 * 10**18; // Round to 0.01 WLD
-    uint256 public constant CYCLE_DURATION = 1 minutes; // DEMO: 1 minute cycles (was 1 days)
-
-    // ============================================
-    // STATE VARIABLES
-    // ============================================
-
-    // Fee configuration
-    uint256 public platformFeePercent = 5; // 5% platform fee (no maximum, fully adjustable)
-
-    // Reward pool (WLD available for swaps)
-    uint256 public rewardPool;
-
-    // Locked funds (bids for active/future ads that can't be swapped yet)
-    uint256 public lockedFunds;
-
-    // Accumulated platform fees (owner can withdraw)
-    uint256 public accumulatedFees;
-
-    // Track last finalized cycle to enable automatic cycle transitions
-    uint256 public lastFinalizedCycle;
-
-    // Admin configuration
-    uint256 public numCycleSlots = 2; // Number of ad slots per cycle
-    mapping(address => bool) public authorizedSigners; // Backend wallets that can sign clicks
-    mapping(address => bool) public bannedAdvertisers; // Banned from bidding
-
-    // Ad slot structure
     struct AdSlot {
         address advertiser;
-        string name;        // Ad name (max 100 chars)
-        string description; // Ad description (max 500 chars)
-        string actionUrl;   // Click-through link (max 200 chars)
-        uint256 bidAmount;  // Amount bid in WLD
-        bool exists;
-        bool removed;       // Admin can remove bad ads
-    }
-
-    // Bidding structure
-    struct Bid {
-        address advertiser;
-        uint256 amount;
-        uint256 timestamp;
         string name;
         string description;
-        string actionUrl;
+        string imageUrl;
+        uint256 bidAmount;
+        SlotType slotType;
+        bool finalized;
+        bool removed;
+        uint256 totalClicks;
+        uint256 claimedAmount;
+        uint256 finalizedAt;
     }
 
-    // Cycle ad slots: cycle => slotIndex => AdSlot
-    mapping(uint256 => mapping(uint256 => AdSlot)) public cycleAds;
+    // ============ State Variables ============
 
-    // Current highest bids for future slots: cycle => slotIndex => Bid
-    mapping(uint256 => mapping(uint256 => Bid)) public highestBids;
+    IERC20 public immutable WLD;
+    IWorldID public immutable worldId;
+    uint256 internal immutable externalNullifier;
+    uint256 internal immutable groupId = 0; // DEMO: Device verification
 
-    // Track claims: user => cycle => slotIndex => claimed
-    mapping(address => mapping(uint256 => mapping(uint256 => bool))) public hasClaimed;
+    uint256 public constant CYCLE_DURATION = 1 minutes; // DEMO: 1 minute cycles
+    uint256 public constant AD_SLOTS_PER_CYCLE = 10;
+    uint256 public constant PLATFORM_FEE_BPS = 500; // 5%
+    uint256 public constant CLAIM_DEADLINE = 14 days;
 
-    // Track used nonces: user => nonce => used
-    mapping(address => mapping(uint256 => bool)) public usedNonces;
+    uint256 public lastFinalizedCycle;
 
-    // World ID nullifier tracking
-    mapping(uint256 => bool) public nullifierUsed;
+    // Mappings
+    mapping(address => bool) public registered;
+    mapping(address => bool) public bannedAdvertisers;
+    mapping(address => bool) public authorizedSigners;
+    mapping(uint256 => mapping(uint256 => AdSlot)) public adSlots;
+    mapping(uint256 => mapping(uint256 => mapping(address => bool))) public hasClicked;
+    mapping(uint256 => mapping(uint256 => mapping(address => bool))) public hasClaimed;
+    mapping(bytes32 => bool) public usedSignatures;
 
-    // Track user registration
-    mapping(address => bool) public isRegistered;
+    uint256 public accumulatedFees;
+    uint256 public lockedFunds;
 
-    // Track which cycles have had funds unlocked: cycle => unlocked
-    mapping(uint256 => bool) public cycleFundsUnlocked;
+    // ============ Events ============
 
-    // ============================================
-    // EVENTS
-    // ============================================
-
-    event UserRegistered(address indexed user, uint256 nullifierHash);
-    event BidPlaced(address indexed advertiser, uint256 indexed cycle, uint256 indexed slotIndex, uint256 amount);
-    event BidRefunded(address indexed advertiser, uint256 amount);
-    event AdSlotFinalized(uint256 indexed cycle, uint256 indexed slotIndex, address indexed winner, uint256 amount);
-    event AdClicked(address indexed user, uint256 indexed cycle, uint256 indexed slotIndex, uint256 reward);
-    event AdRemoved(uint256 indexed cycle, uint256 indexed slotIndex, address indexed advertiser);
+    event UserRegistered(address indexed user);
+    event AdBidPlaced(address indexed advertiser, uint256 indexed cycle, uint256 indexed slotIndex, SlotType slotType, uint256 bidAmount);
+    event AdRemoved(address indexed advertiser, uint256 indexed cycle, uint256 indexed slotIndex);
+    event ClickRecorded(address indexed user, uint256 indexed cycle, uint256 indexed slotIndex);
+    event RewardClaimed(address indexed user, uint256 indexed cycle, uint256 indexed slotIndex, uint256 amount);
+    event CycleFinalized(uint256 indexed cycle);
+    event AdSlotFinalized(uint256 indexed cycle, uint256 indexed slotIndex, uint256 totalClicks);
+    event ExpiredClaimCollected(uint256 indexed cycle, uint256 indexed slotIndex, uint256 amount);
+    event FeesWithdrawn(address indexed recipient, uint256 amount);
     event AdvertiserBanned(address indexed advertiser);
     event AdvertiserUnbanned(address indexed advertiser);
-    event SignerAdded(address indexed signer);
-    event SignerRemoved(address indexed signer);
-    event NumSlotsUpdated(uint256 newNumSlots);
-    event PlatformFeeUpdated(uint256 newFeePercent);
-    event TokensSwapped(address indexed user, uint256 adsAmount, uint256 wldAmount);
-    event CycleTransitioned(uint256 indexed newCycle);
-    event FundsUnlocked(uint256 indexed cycle, uint256 amount);
-    event FeesWithdrawn(address indexed owner, uint256 amount);
 
-    // ============================================
-    // ERRORS
-    // ============================================
+    // ============ Errors ============
 
     error NotRegistered();
     error AlreadyRegistered();
-    error InvalidNullifier();
-    error InvalidSignature();
-    error SignatureExpired();
-    error NonceAlreadyUsed();
-    error AlreadyClaimed();
-    error SlotDoesNotExist();
-    error AdWasRemoved();
-    error NotAuthorizedSigner();
-    error AdvertiserIsBanned();
-    error InvalidSlotIndex();
     error InvalidCycle();
-    error BidTooLow();
+    error InvalidSlot();
+    error NotFinalized();
+    error AlreadyFinalized();
+    error AlreadyClicked();
+    error AlreadyClaimed();
+    error NotAuthorized();
     error TransferFailed();
-    error CannotBidOnPastOrCurrent();
-    error InvalidNumSlots();
-    error InsufficientRewardPool();
-    error NoADSToSwap();
+    error InvalidAmount();
+    error AdvertiserIsBanned();
+    error AdWasRemoved();
+    error ClaimDeadlinePassed();
+    error ClaimDeadlineNotPassed();
+    error NoClickRecorded();
+    error SignatureAlreadyUsed();
+    error NotAdvertiser();
 
-    // ============================================
-    // CONSTRUCTOR
-    // ============================================
+    // ============ Constructor ============
 
     constructor(
+        address _wldToken,
         address _worldId,
         string memory _appId,
-        string memory _actionId,
-        address _wld,
-        address _initialSigner
-    ) ERC20("Ads Token (Demo)", "ADS") Ownable(msg.sender) {
+        string memory _action
+    ) Ownable(msg.sender) {
+        WLD = IERC20(_wldToken);
         worldId = IWorldID(_worldId);
-        externalNullifier = abi.encodePacked(abi.encodePacked(_appId).hashToField(), _actionId).hashToField();
-
-        WLD = IERC20(_wld);
-
-        authorizedSigners[_initialSigner] = true;
-        emit SignerAdded(_initialSigner);
-
-        // Initialize to previous cycle so first claim triggers current cycle's finalization
-        lastFinalizedCycle = (block.timestamp / CYCLE_DURATION) - 1;
-
-        // DEMO: Seed deployer with 5 ADS tokens
-        _mint(msg.sender, 5 * 10**18);
+        externalNullifier = abi.encodePacked(abi.encodePacked(_appId).hashToField(), _action).hashToField();
     }
 
-    // ============================================
-    // USER REGISTRATION (WORLD ID)
-    // ============================================
+    // ============ Registration ============
 
-    /**
-     * @notice Register with World ID (required before claiming rewards)
-     * @param signal User's address
-     * @param root Merkle root
-     * @param nullifierHash World ID nullifier
-     * @param proof World ID proof
-     */
     function register(
         address signal,
         uint256 root,
         uint256 nullifierHash,
         uint256[8] calldata proof
-    ) external {
-        if (isRegistered[msg.sender]) revert AlreadyRegistered();
-        if (signal != msg.sender) revert InvalidNullifier();
-        if (nullifierUsed[nullifierHash]) revert InvalidNullifier();
+    ) external nonReentrant {
+        if (registered[msg.sender]) revert AlreadyRegistered();
 
-        // Verify World ID proof
         worldId.verifyProof(
             root,
             groupId,
@@ -203,179 +142,92 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
             proof
         );
 
-        nullifierUsed[nullifierHash] = true;
-        isRegistered[msg.sender] = true;
-
-        emit UserRegistered(msg.sender, nullifierHash);
+        registered[msg.sender] = true;
+        emit UserRegistered(msg.sender);
     }
 
-    // ============================================
-    // AUTOMATIC CYCLE MANAGEMENT
-    // ============================================
+    // ============ Advertiser Functions ============
 
-    /**
-     * @notice Automatically handle cycle transition when needed
-     * @dev Called internally before claims to ensure cycle management is up to date
-     * This bundles: unlocking previous cycle funds + finalizing current cycle slots
-     */
-    function _handleCycleTransition() internal {
-        uint256 currentCycle = block.timestamp / CYCLE_DURATION;
-
-        // If we're already up to date, return
-        if (lastFinalizedCycle >= currentCycle) {
-            return;
-        }
-
-        // Process all cycles from lastFinalizedCycle+1 up to currentCycle
-        for (uint256 cycle = lastFinalizedCycle + 1; cycle <= currentCycle; cycle++) {
-            // First, unlock funds from the previous cycle (cycle - 1) if it exists and hasn't been unlocked
-            if (cycle > 0 && !cycleFundsUnlocked[cycle - 1]) {
-                _unlockCycleFunds(cycle - 1);
-            }
-
-            // Then, finalize all slots for the current cycle
-            for (uint256 slotIndex = 0; slotIndex < numCycleSlots; slotIndex++) {
-                _finalizeAdSlot(cycle, slotIndex);
-            }
-
-            emit CycleTransitioned(cycle);
-        }
-
-        lastFinalizedCycle = currentCycle;
-    }
-
-    /**
-     * @notice Internal function to unlock all funds for a completed cycle
-     * @param cycle The cycle to unlock funds for
-     */
-    function _unlockCycleFunds(uint256 cycle) internal {
-        if (cycleFundsUnlocked[cycle]) {
-            return; // Already unlocked
-        }
-
-        uint256 totalUnlocked = 0;
-
-        for (uint256 slotIndex = 0; slotIndex < numCycleSlots; slotIndex++) {
-            AdSlot storage ad = cycleAds[cycle][slotIndex];
-
-            // Only unlock if slot exists, not removed, and has a bid amount
-            if (ad.exists && !ad.removed && ad.bidAmount > 0) {
-                // Calculate reward amount (after fee was already taken during finalization)
-                uint256 feeAmount = (ad.bidAmount * platformFeePercent) / 100;
-                uint256 rewardAmount = ad.bidAmount - feeAmount;
-
-                // Move from locked to reward pool
-                lockedFunds -= rewardAmount;
-                rewardPool += rewardAmount;
-                totalUnlocked += rewardAmount;
-
-                // Mark as processed
-                ad.bidAmount = 0;
-            }
-        }
-
-        cycleFundsUnlocked[cycle] = true;
-
-        if (totalUnlocked > 0) {
-            emit FundsUnlocked(cycle, totalUnlocked);
-        }
-    }
-
-    /**
-     * @notice Internal function to finalize a specific ad slot
-     * @param cycle The cycle to finalize
-     * @param slotIndex The slot index
-     */
-    function _finalizeAdSlot(uint256 cycle, uint256 slotIndex) internal {
-        AdSlot storage ad = cycleAds[cycle][slotIndex];
-        if (ad.exists) {
-            return; // Already finalized
-        }
-
-        Bid storage winningBid = highestBids[cycle][slotIndex];
-
-        if (winningBid.amount > 0) {
-            // Calculate platform fee
-            uint256 feeAmount = (winningBid.amount * platformFeePercent) / 100;
-            uint256 rewardAmount = winningBid.amount - feeAmount;
-
-            // Create ad slot from winning bid
-            ad.advertiser = winningBid.advertiser;
-            ad.name = winningBid.name;
-            ad.description = winningBid.description;
-            ad.actionUrl = winningBid.actionUrl;
-            ad.bidAmount = winningBid.amount;
-            ad.exists = true;
-            ad.removed = false;
-
-            // Unlock from bidding locked funds
-            lockedFunds -= winningBid.amount;
-
-            // Lock the reward amount (will unlock when cycle ends)
-            lockedFunds += rewardAmount;
-
-            // Accumulate fee (owner can withdraw later via withdrawFees)
-            accumulatedFees += feeAmount;
-
-            emit AdSlotFinalized(cycle, slotIndex, winningBid.advertiser, winningBid.amount);
-        }
-    }
-
-    // ============================================
-    // CLAIMING REWARDS
-    // ============================================
-
-    /**
-     * @notice Claim ADS reward for clicking an ad
-     * @dev Automatically handles cycle transitions before processing claim
-     * @param cycle The cycle of the ad (block.timestamp / CYCLE_DURATION)
-     * @param slotIndex The slot index (0 to numCycleSlots-1)
-     * @param rewardAmount Amount of ADS tokens to reward (determined by backend)
-     * @param nonce Unique nonce to prevent replay
-     * @param timestamp When the click happened
-     * @param signature Backend signature proving the click
-     */
-    function claimReward(
+    function placeAdBid(
         uint256 cycle,
         uint256 slotIndex,
-        uint256 rewardAmount,
+        string calldata name,
+        string calldata description,
+        string calldata imageUrl,
+        uint256 bidAmount,
+        SlotType slotType
+    ) external nonReentrant {
+        if (bannedAdvertisers[msg.sender]) revert AdvertiserIsBanned();
+        if (cycle != _getCurrentCycle()) revert InvalidCycle();
+        if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
+
+        AdSlot storage slot = adSlots[cycle][slotIndex];
+
+        // Refund previous bidder if outbid
+        if (slot.advertiser != address(0) && slot.bidAmount > 0) {
+            bool refundSuccess = WLD.transfer(slot.advertiser, slot.bidAmount);
+            if (!refundSuccess) revert TransferFailed();
+            lockedFunds -= slot.bidAmount;
+        }
+
+        // Accept new bid
+        bool success = WLD.transferFrom(msg.sender, address(this), bidAmount);
+        if (!success) revert TransferFailed();
+
+        slot.advertiser = msg.sender;
+        slot.name = name;
+        slot.description = description;
+        slot.imageUrl = imageUrl;
+        slot.bidAmount = bidAmount;
+        slot.slotType = slotType;
+
+        lockedFunds += bidAmount;
+
+        emit AdBidPlaced(msg.sender, cycle, slotIndex, slotType, bidAmount);
+    }
+
+    function removeAd(uint256 cycle, uint256 slotIndex) external nonReentrant {
+        if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
+
+        AdSlot storage slot = adSlots[cycle][slotIndex];
+        if (slot.advertiser != msg.sender) revert NotAdvertiser();
+        if (slot.finalized) revert AlreadyFinalized();
+
+        slot.removed = true;
+
+        // Refund bid
+        if (slot.bidAmount > 0) {
+            lockedFunds -= slot.bidAmount;
+            bool success = WLD.transfer(msg.sender, slot.bidAmount);
+            if (!success) revert TransferFailed();
+        }
+
+        emit AdRemoved(msg.sender, cycle, slotIndex);
+    }
+
+    // ============ Click Recording ============
+
+    function recordClick(
+        uint256 cycle,
+        uint256 slotIndex,
         uint256 nonce,
         uint256 timestamp,
         bytes calldata signature
     ) external nonReentrant {
-        // AUTOMATIC: Handle cycle transition first (unlocks past funds + finalizes current cycle's slots)
-        _handleCycleTransition();
+        if (!registered[msg.sender]) revert NotRegistered();
+        if (cycle >= _getCurrentCycle()) revert InvalidCycle();
+        if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
 
-        // 1. Check user is registered
-        if (!isRegistered[msg.sender]) revert NotRegistered();
+        AdSlot storage slot = adSlots[cycle][slotIndex];
+        if (slot.finalized) revert AlreadyFinalized();
+        if (slot.removed) revert AdWasRemoved();
+        if (hasClicked[cycle][slotIndex][msg.sender]) revert AlreadyClicked();
 
-        // 2. Verify slot exists and is valid
-        if (slotIndex >= numCycleSlots) revert InvalidSlotIndex();
-
-        AdSlot storage ad = cycleAds[cycle][slotIndex];
-        if (!ad.exists) revert SlotDoesNotExist();
-        if (ad.removed) revert AdWasRemoved();
-
-        // 3. Check not already claimed
-        if (hasClaimed[msg.sender][cycle][slotIndex]) revert AlreadyClaimed();
-
-        // 4. Verify nonce not used
-        if (usedNonces[msg.sender][nonce]) revert NonceAlreadyUsed();
-
-        // 5. Verify timestamp freshness
-        if (timestamp > block.timestamp ||
-            timestamp + SIGNATURE_VALIDITY < block.timestamp) {
-            revert SignatureExpired();
-        }
-
-        // 6. Verify backend signature
-        // Each signature is unique per (user, cycle, slotIndex, rewardAmount, nonce, timestamp)
-        // Backend can differentiate rewards based on geo-IP, device type, etc.
+        // Verify backend signature
         bytes32 messageHash = keccak256(abi.encodePacked(
             msg.sender,
             cycle,
             slotIndex,
-            rewardAmount,
             nonce,
             timestamp
         ));
@@ -385,268 +237,253 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
             messageHash
         ));
 
+        if (usedSignatures[ethSignedHash]) revert SignatureAlreadyUsed();
+
         address signer = _recoverSigner(ethSignedHash, signature);
-        if (!authorizedSigners[signer]) revert NotAuthorizedSigner();
+        if (!authorizedSigners[signer]) revert NotAuthorized();
 
-        // 7. Mark as claimed
-        hasClaimed[msg.sender][cycle][slotIndex] = true;
-        usedNonces[msg.sender][nonce] = true;
+        usedSignatures[ethSignedHash] = true;
+        hasClicked[cycle][slotIndex][msg.sender] = true;
+        slot.totalClicks++;
 
-        // 8. Mint reward (dynamic amount from backend)
-        _mint(msg.sender, rewardAmount);
-
-        emit AdClicked(msg.sender, cycle, slotIndex, rewardAmount);
+        emit ClickRecorded(msg.sender, cycle, slotIndex);
     }
 
-    // ============================================
-    // BIDDING SYSTEM
-    // ============================================
+    // ============ Reward Claiming ============
 
-    /**
-     * @notice Calculate minimum bid required for a slot
-     * @param cycle The cycle
-     * @param slotIndex The slot index
-     * @return Minimum bid amount required
-     */
-    function getMinimumBid(uint256 cycle, uint256 slotIndex)
-        public
-        view
-        returns (uint256)
-    {
-        Bid storage currentBid = highestBids[cycle][slotIndex];
-
-        if (currentBid.amount == 0) {
-            return MIN_BID;
-        }
-
-        // Must be 5% higher
-        uint256 minRequired = (currentBid.amount * (100 + MIN_BID_INCREMENT_PERCENT)) / 100;
-
-        // Round up to nearest 0.01 WLD
-        uint256 remainder = minRequired % BID_INCREMENT_PRECISION;
-        if (remainder > 0) {
-            minRequired = minRequired - remainder + BID_INCREMENT_PRECISION;
-        }
-
-        return minRequired;
-    }
-
-    /**
-     * @notice Place a bid for a future ad slot
-     * @param cycle The cycle to bid for (must be next cycle or later)
-     * @param slotIndex The slot index (0 to numCycleSlots-1)
-     * @param amount Bid amount (must meet minimum requirements)
-     * @param name Ad name (max 100 chars)
-     * @param description Ad description (max 500 chars)
-     * @param actionUrl Click-through URL (max 200 chars)
-     */
-    function placeBid(
+    function claimReward(
         uint256 cycle,
-        uint256 slotIndex,
-        uint256 amount,
-        string calldata name,
-        string calldata description,
-        string calldata actionUrl
+        uint256 slotIndex
     ) external nonReentrant {
-        uint256 currentCycle = block.timestamp / CYCLE_DURATION;
+        if (!registered[msg.sender]) revert NotRegistered();
+        if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
 
-        // Validations
-        if (bannedAdvertisers[msg.sender]) revert AdvertiserIsBanned();
-        if (cycle <= currentCycle) revert CannotBidOnPastOrCurrent();
-        if (slotIndex >= numCycleSlots) revert InvalidSlotIndex();
-        if (bytes(name).length == 0 || bytes(name).length > 100) revert("Name must be 1-100 chars");
-        if (bytes(description).length == 0 || bytes(description).length > 500) revert("Description must be 1-500 chars");
-        if (bytes(actionUrl).length == 0 || bytes(actionUrl).length > 200) revert("URL must be 1-200 chars");
+        AdSlot storage slot = adSlots[cycle][slotIndex];
 
-        // Check bid meets minimum requirements
-        uint256 minRequired = getMinimumBid(cycle, slotIndex);
-        if (amount < minRequired) revert BidTooLow();
+        if (!slot.finalized) revert NotFinalized();
+        if (slot.removed) revert AdWasRemoved();
+        if (!hasClicked[cycle][slotIndex][msg.sender]) revert NoClickRecorded();
+        if (hasClaimed[cycle][slotIndex][msg.sender]) revert AlreadyClaimed();
 
-        Bid storage currentBid = highestBids[cycle][slotIndex];
-
-        // Refund previous bidder if exists (full refund)
-        if (currentBid.amount > 0) {
-            lockedFunds -= currentBid.amount;
-            bool refundSuccess = WLD.transfer(currentBid.advertiser, currentBid.amount);
-            if (!refundSuccess) revert TransferFailed();
-            emit BidRefunded(currentBid.advertiser, currentBid.amount);
+        if (block.timestamp > slot.finalizedAt + CLAIM_DEADLINE) {
+            revert ClaimDeadlinePassed();
         }
 
-        // Transfer new bid amount to contract
-        bool success = WLD.transferFrom(msg.sender, address(this), amount);
+        uint256 totalClicks = slot.totalClicks;
+        if (totalClicks == 0) revert InvalidAmount();
+
+        uint256 bidAmount = slot.bidAmount;
+        uint256 feeAmount = (bidAmount * PLATFORM_FEE_BPS) / 10000;
+        uint256 availableAmount = bidAmount - feeAmount;
+        uint256 userReward = availableAmount / totalClicks;
+
+        hasClaimed[cycle][slotIndex][msg.sender] = true;
+        slot.claimedAmount += userReward;
+
+        bool success = WLD.transfer(msg.sender, userReward);
         if (!success) revert TransferFailed();
 
-        // Lock the funds (can't be swapped until ad slot is complete)
-        lockedFunds += amount;
+        emit RewardClaimed(msg.sender, cycle, slotIndex, userReward);
+    }
 
-        // Update highest bid
-        highestBids[cycle][slotIndex] = Bid({
-            advertiser: msg.sender,
-            amount: amount,
-            timestamp: block.timestamp,
-            name: name,
-            description: description,
-            actionUrl: actionUrl
-        });
+    function collectExpiredClaims(
+        uint256 cycle,
+        uint256 slotIndex
+    ) external nonReentrant {
+        if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
 
-        emit BidPlaced(msg.sender, cycle, slotIndex, amount);
+        AdSlot storage slot = adSlots[cycle][slotIndex];
+
+        if (!slot.finalized) revert NotFinalized();
+        if (block.timestamp <= slot.finalizedAt + CLAIM_DEADLINE) {
+            revert ClaimDeadlineNotPassed();
+        }
+
+        uint256 bidAmount = slot.bidAmount;
+        uint256 feeAmount = (bidAmount * PLATFORM_FEE_BPS) / 10000;
+        uint256 availableAmount = bidAmount - feeAmount;
+        uint256 unclaimedAmount = availableAmount - slot.claimedAmount;
+
+        if (unclaimedAmount == 0) revert InvalidAmount();
+
+        slot.claimedAmount = availableAmount;
+
+        bool success = WLD.transfer(owner(), unclaimedAmount);
+        if (!success) revert TransferFailed();
+
+        emit ExpiredClaimCollected(cycle, slotIndex, unclaimedAmount);
+    }
+
+    // ============ Cycle Management ============
+
+    function finalizeCycle(uint256 cycle) external {
+        if (cycle >= _getCurrentCycle()) revert InvalidCycle();
+        if (cycle != lastFinalizedCycle + 1) revert InvalidCycle();
+
+        for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
+            _finalizeAdSlot(cycle, i);
+        }
+
+        lastFinalizedCycle = cycle;
+        emit CycleFinalized(cycle);
     }
 
     /**
-     * @notice Update ad content for a finalized slot (only winning advertiser)
-     * @param cycle The cycle
-     * @param slotIndex The slot index
-     * @param name Ad name
-     * @param description Ad description
-     * @param actionUrl Click-through URL
+     * @notice DEMO: Manually finalize current cycle for easier demonstrations
+     * @dev Allows owner to advance cycles without waiting
      */
-    function updateAdContent(
+    function forceFinalizeCycle() external onlyOwner {
+        uint256 currentCycle = _getCurrentCycle();
+        if (currentCycle == 0) return;
+
+        uint256 cycleToFinalize = currentCycle - 1;
+        if (cycleToFinalize == lastFinalizedCycle) return; // Already finalized
+
+        for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
+            _finalizeAdSlot(cycleToFinalize, i);
+        }
+
+        lastFinalizedCycle = cycleToFinalize;
+        emit CycleFinalized(cycleToFinalize);
+    }
+
+    function _finalizeAdSlot(uint256 cycle, uint256 slotIndex) internal {
+        AdSlot storage slot = adSlots[cycle][slotIndex];
+
+        if (slot.advertiser == address(0)) {
+            slot.finalized = true;
+            return;
+        }
+
+        if (slot.removed) {
+            slot.finalized = true;
+            return;
+        }
+
+        uint256 bidAmount = slot.bidAmount;
+        uint256 feeAmount = (bidAmount * PLATFORM_FEE_BPS) / 10000;
+
+        accumulatedFees += feeAmount;
+        lockedFunds -= bidAmount;
+
+        slot.finalized = true;
+        slot.finalizedAt = block.timestamp;
+
+        emit AdSlotFinalized(cycle, slotIndex, slot.totalClicks);
+    }
+
+    // ============ View Functions ============
+
+    function getCurrentCycle() external view returns (uint256) {
+        return _getCurrentCycle();
+    }
+
+    function _getCurrentCycle() internal view returns (uint256) {
+        return block.timestamp / CYCLE_DURATION;
+    }
+
+    function getCurrentAds() external view returns (AdSlot[] memory) {
+        uint256 currentCycle = _getCurrentCycle();
+        AdSlot[] memory ads = new AdSlot[](AD_SLOTS_PER_CYCLE);
+
+        for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
+            ads[i] = adSlots[currentCycle][i];
+        }
+
+        return ads;
+    }
+
+    function calculateUserReward(
         uint256 cycle,
         uint256 slotIndex,
-        string calldata name,
-        string calldata description,
-        string calldata actionUrl
-    ) external {
-        AdSlot storage ad = cycleAds[cycle][slotIndex];
+        address user
+    ) external view returns (uint256) {
+        AdSlot storage slot = adSlots[cycle][slotIndex];
 
-        if (!ad.exists) revert SlotDoesNotExist();
-        if (ad.advertiser != msg.sender) revert("Not advertiser");
-        if (bytes(name).length == 0 || bytes(name).length > 100) revert("Name must be 1-100 chars");
-        if (bytes(description).length == 0 || bytes(description).length > 500) revert("Description must be 1-500 chars");
-        if (bytes(actionUrl).length == 0 || bytes(actionUrl).length > 200) revert("URL must be 1-200 chars");
+        if (!hasClicked[cycle][slotIndex][user]) return 0;
+        if (hasClaimed[cycle][slotIndex][user]) return 0;
+        if (!slot.finalized) return 0;
+        if (slot.totalClicks == 0) return 0;
 
-        ad.name = name;
-        ad.description = description;
-        ad.actionUrl = actionUrl;
+        uint256 bidAmount = slot.bidAmount;
+        uint256 feeAmount = (bidAmount * PLATFORM_FEE_BPS) / 10000;
+        uint256 availableAmount = bidAmount - feeAmount;
+
+        return availableAmount / slot.totalClicks;
     }
 
-    // ============================================
-    // TOKEN SWAP FUNCTIONS
-    // ============================================
+    function getUserClaimableRewards(address user) external view returns (
+        uint256[] memory cycles,
+        uint256[] memory slots,
+        uint256[] memory amounts
+    ) {
+        uint256 currentCycle = _getCurrentCycle();
+        uint256 maxClaims = currentCycle * AD_SLOTS_PER_CYCLE;
 
-    /**
-     * @notice Swap ADS tokens for WLD from reward pool
-     * @param adsAmount Amount of ADS to burn
-     * @dev Exchange rate: (your ADS / total ADS) × available pool
-     */
-    function swapADSForWLD(uint256 adsAmount) external nonReentrant {
-        if (adsAmount == 0) revert NoADSToSwap();
-        if (balanceOf(msg.sender) < adsAmount) revert NoADSToSwap();
+        uint256[] memory tempCycles = new uint256[](maxClaims);
+        uint256[] memory tempSlots = new uint256[](maxClaims);
+        uint256[] memory tempAmounts = new uint256[](maxClaims);
+        uint256 count = 0;
 
-        uint256 totalADS = totalSupply();
-        if (totalADS == 0) revert NoADSToSwap();
+        for (uint256 c = 0; c <= currentCycle; c++) {
+            for (uint256 s = 0; s < AD_SLOTS_PER_CYCLE; s++) {
+                AdSlot storage slot = adSlots[c][s];
 
-        uint256 availablePool = rewardPool;
-        if (availablePool == 0) revert InsufficientRewardPool();
+                if (hasClicked[c][s][user] &&
+                    !hasClaimed[c][s][user] &&
+                    slot.finalized &&
+                    block.timestamp <= slot.finalizedAt + CLAIM_DEADLINE &&
+                    slot.totalClicks > 0) {
 
-        // Calculate proportional share: (adsAmount / totalSupply) × availablePool
-        uint256 wldAmount = (adsAmount * availablePool) / totalADS;
+                    uint256 bidAmount = slot.bidAmount;
+                    uint256 feeAmount = (bidAmount * PLATFORM_FEE_BPS) / 10000;
+                    uint256 availableAmount = bidAmount - feeAmount;
+                    uint256 reward = availableAmount / slot.totalClicks;
 
-        if (wldAmount == 0) revert InsufficientRewardPool();
+                    tempCycles[count] = c;
+                    tempSlots[count] = s;
+                    tempAmounts[count] = reward;
+                    count++;
+                }
+            }
+        }
 
-        // Burn ADS tokens
-        _burn(msg.sender, adsAmount);
+        cycles = new uint256[](count);
+        slots = new uint256[](count);
+        amounts = new uint256[](count);
 
-        // Decrease reward pool
-        rewardPool -= wldAmount;
+        for (uint256 i = 0; i < count; i++) {
+            cycles[i] = tempCycles[i];
+            slots[i] = tempSlots[i];
+            amounts[i] = tempAmounts[i];
+        }
 
-        // Transfer WLD to user
-        bool success = WLD.transfer(msg.sender, wldAmount);
-        if (!success) revert TransferFailed();
-
-        emit TokensSwapped(msg.sender, adsAmount, wldAmount);
+        return (cycles, slots, amounts);
     }
 
-    /**
-     * @notice Calculate swap output before executing
-     * @param adsAmount Amount of ADS to swap
-     * @return Expected WLD amount
-     */
-    function calculateSwapOutput(uint256 adsAmount)
-        external
-        view
-        returns (uint256)
-    {
-        if (adsAmount == 0) return 0;
+    // ============ Admin Functions ============
 
-        uint256 totalADS = totalSupply();
-        if (totalADS == 0) return 0;
-
-        uint256 availablePool = rewardPool;
-        return (adsAmount * availablePool) / totalADS;
-    }
-
-    // ============================================
-    // ADMIN FUNCTIONS
-    // ============================================
-
-    /**
-     * @notice Add an authorized signer (backend wallet)
-     */
-    function addSigner(address signer) external onlyOwner {
+    function addAuthorizedSigner(address signer) external onlyOwner {
         authorizedSigners[signer] = true;
-        emit SignerAdded(signer);
     }
 
-    /**
-     * @notice Remove an authorized signer
-     */
-    function removeSigner(address signer) external onlyOwner {
+    function removeAuthorizedSigner(address signer) external onlyOwner {
         authorizedSigners[signer] = false;
-        emit SignerRemoved(signer);
     }
 
-    /**
-     * @notice Ban an advertiser from bidding
-     */
     function banAdvertiser(address advertiser) external onlyOwner {
         bannedAdvertisers[advertiser] = true;
         emit AdvertiserBanned(advertiser);
     }
 
-    /**
-     * @notice Unban an advertiser
-     */
     function unbanAdvertiser(address advertiser) external onlyOwner {
         bannedAdvertisers[advertiser] = false;
         emit AdvertiserUnbanned(advertiser);
     }
 
-    /**
-     * @notice Remove a bad ad
-     */
-    function removeAd(uint256 cycle, uint256 slotIndex) external onlyOwner {
-        AdSlot storage ad = cycleAds[cycle][slotIndex];
-        if (!ad.exists) revert SlotDoesNotExist();
-
-        ad.removed = true;
-        emit AdRemoved(cycle, slotIndex, ad.advertiser);
-    }
-
-    /**
-     * @notice Set number of cycle ad slots
-     */
-    function setNumCycleSlots(uint256 _numSlots) external onlyOwner {
-        if (_numSlots == 0 || _numSlots > 10) revert InvalidNumSlots();
-        numCycleSlots = _numSlots;
-        emit NumSlotsUpdated(_numSlots);
-    }
-
-    /**
-     * @notice Set platform fee percentage
-     * @param _feePercent New fee percentage (no maximum limit)
-     */
-    function setPlatformFee(uint256 _feePercent) external onlyOwner {
-        platformFeePercent = _feePercent;
-        emit PlatformFeeUpdated(_feePercent);
-    }
-
-    /**
-     * @notice Withdraw accumulated platform fees
-     */
     function withdrawFees() external onlyOwner nonReentrant {
         uint256 amount = accumulatedFees;
-        if (amount == 0) revert("No fees to withdraw");
+        if (amount == 0) revert InvalidAmount();
 
         accumulatedFees = 0;
 
@@ -656,278 +493,9 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
         emit FeesWithdrawn(owner(), amount);
     }
 
-    /**
-     * @notice Emergency withdraw WLD (only owner)
-     */
-    function emergencyWithdraw(uint256 amount) external onlyOwner {
-        bool success = WLD.transfer(owner(), amount);
-        if (!success) revert TransferFailed();
-    }
+    // ============ Internal Functions ============
 
-    /**
-     * @notice Manual cycle transition trigger (public function, though auto-triggered by claims)
-     * @dev Useful if no claims happen for multiple cycles
-     */
-    function triggerCycleTransition() external {
-        _handleCycleTransition();
-    }
-
-    // ============================================
-    // DEMO SEEDING FUNCTIONS
-    // ============================================
-
-    /**
-     * @notice DEMO: Register a user without World ID verification
-     * @param user Address to register
-     */
-    function seedRegistration(address user) external onlyOwner {
-        if (isRegistered[user]) revert AlreadyRegistered();
-        isRegistered[user] = true;
-        emit UserRegistered(user, 0); // nullifierHash = 0 for seeded users
-    }
-
-    /**
-     * @notice DEMO: Create a historical ad slot (bypasses bidding)
-     * @param cycle The cycle to seed
-     * @param slotIndex The slot index
-     * @param advertiser Advertiser address
-     * @param name Ad name
-     * @param description Ad description
-     * @param actionUrl Click-through URL
-     * @param bidAmount Bid amount (for display/unlocking purposes)
-     */
-    function seedAdSlot(
-        uint256 cycle,
-        uint256 slotIndex,
-        address advertiser,
-        string calldata name,
-        string calldata description,
-        string calldata actionUrl,
-        uint256 bidAmount
-    ) external onlyOwner {
-        if (slotIndex >= numCycleSlots) revert InvalidSlotIndex();
-        if (bytes(name).length == 0 || bytes(name).length > 100) revert("Name must be 1-100 chars");
-        if (bytes(description).length == 0 || bytes(description).length > 500) revert("Description must be 1-500 chars");
-        if (bytes(actionUrl).length == 0 || bytes(actionUrl).length > 200) revert("URL must be 1-200 chars");
-
-        AdSlot storage ad = cycleAds[cycle][slotIndex];
-        ad.advertiser = advertiser;
-        ad.name = name;
-        ad.description = description;
-        ad.actionUrl = actionUrl;
-        ad.bidAmount = bidAmount;
-        ad.exists = true;
-        ad.removed = false;
-
-        emit AdSlotFinalized(cycle, slotIndex, advertiser, bidAmount);
-    }
-
-    /**
-     * @notice DEMO: Mint ADS tokens to a user (simulate past claims)
-     * @param user Address to mint to
-     * @param amount Amount of ADS tokens
-     */
-    function seedADSBalance(address user, uint256 amount) external onlyOwner {
-        _mint(user, amount);
-    }
-
-    /**
-     * @notice DEMO: Add WLD directly to reward pool
-     * @param amount Amount of WLD to add
-     * @dev Owner must have approved this contract to spend WLD first
-     */
-    function seedRewardPool(uint256 amount) external onlyOwner {
-        bool success = WLD.transferFrom(msg.sender, address(this), amount);
-        if (!success) revert TransferFailed();
-
-        rewardPool += amount;
-    }
-
-    /**
-     * @notice DEMO: Manually advance to next cycle (skip waiting)
-     * @dev Forces cycle transition and increments lastFinalizedCycle
-     */
-    function forceAdvanceCycle() external onlyOwner {
-        // Advance to next cycle
-        uint256 targetCycle = lastFinalizedCycle + 1;
-
-        // Unlock funds from previous cycle if needed
-        if (targetCycle > 0 && !cycleFundsUnlocked[targetCycle - 1]) {
-            _unlockCycleFunds(targetCycle - 1);
-        }
-
-        // Finalize all slots for target cycle
-        for (uint256 slotIndex = 0; slotIndex < numCycleSlots; slotIndex++) {
-            _finalizeAdSlot(targetCycle, slotIndex);
-        }
-
-        lastFinalizedCycle = targetCycle;
-        emit CycleTransitioned(targetCycle);
-    }
-
-    /**
-     * @notice DEMO: Mark a cycle's funds as already unlocked
-     * @param cycle The cycle to mark
-     */
-    function seedCycleUnlocked(uint256 cycle) external onlyOwner {
-        cycleFundsUnlocked[cycle] = true;
-    }
-
-    /**
-     * @notice DEMO: Set last finalized cycle (for controlling time)
-     * @param cycle The cycle number to set
-     */
-    function setLastFinalizedCycle(uint256 cycle) external onlyOwner {
-        lastFinalizedCycle = cycle;
-    }
-
-    // ============================================
-    // VIEW FUNCTIONS
-    // ============================================
-
-    /**
-     * @notice Get current cycle number
-     */
-    function getCurrentCycle() external view returns (uint256) {
-        return block.timestamp / CYCLE_DURATION;
-    }
-
-    /**
-     * @notice Get ad slot for a specific cycle
-     */
-    function getAdSlot(uint256 cycle, uint256 slotIndex)
-        external
-        view
-        returns (
-            address advertiser,
-            string memory name,
-            string memory description,
-            string memory actionUrl,
-            uint256 bidAmount,
-            bool exists,
-            bool removed
-        )
-    {
-        AdSlot storage ad = cycleAds[cycle][slotIndex];
-        return (
-            ad.advertiser,
-            ad.name,
-            ad.description,
-            ad.actionUrl,
-            ad.bidAmount,
-            ad.exists,
-            ad.removed
-        );
-    }
-
-    /**
-     * @notice Get highest bid for a future slot
-     */
-    function getHighestBid(uint256 cycle, uint256 slotIndex)
-        external
-        view
-        returns (
-            address advertiser,
-            uint256 amount,
-            uint256 timestamp,
-            string memory name,
-            string memory description,
-            string memory actionUrl
-        )
-    {
-        Bid storage bid = highestBids[cycle][slotIndex];
-        return (bid.advertiser, bid.amount, bid.timestamp, bid.name, bid.description, bid.actionUrl);
-    }
-
-    /**
-     * @notice Check if user has claimed for a specific ad
-     */
-    function hasUserClaimed(address user, uint256 cycle, uint256 slotIndex)
-        external
-        view
-        returns (bool)
-    {
-        return hasClaimed[user][cycle][slotIndex];
-    }
-
-    /**
-     * @notice Get all current cycle's ads
-     */
-    function getCurrentAds() external view returns (AdSlot[] memory) {
-        uint256 current = block.timestamp / CYCLE_DURATION;
-        AdSlot[] memory ads = new AdSlot[](numCycleSlots);
-
-        for (uint256 i = 0; i < numCycleSlots; i++) {
-            ads[i] = cycleAds[current][i];
-        }
-
-        return ads;
-    }
-
-    /**
-     * @notice Check which ads user can still claim in current cycle
-     */
-    function getClaimableAds(address user) external view returns (bool[] memory) {
-        uint256 current = block.timestamp / CYCLE_DURATION;
-        bool[] memory claimable = new bool[](numCycleSlots);
-
-        for (uint256 i = 0; i < numCycleSlots; i++) {
-            AdSlot storage ad = cycleAds[current][i];
-            claimable[i] = ad.exists &&
-                           !ad.removed &&
-                           !hasClaimed[user][current][i] &&
-                           isRegistered[user];
-        }
-
-        return claimable;
-    }
-
-    /**
-     * @notice Get pool balances
-     * @return availablePool WLD available in reward pool
-     * @return locked WLD locked (for active/future ads)
-     * @return fees Accumulated platform fees
-     */
-    function getPoolBalances() external view returns (
-        uint256 availablePool,
-        uint256 locked,
-        uint256 fees
-    ) {
-        return (rewardPool, lockedFunds, accumulatedFees);
-    }
-
-    /**
-     * @notice Get user's potential swap value
-     * @param user User address
-     * @return adsBalance User's ADS balance
-     * @return wldValue Value in WLD if swapped all ADS
-     */
-    function getUserSwapInfo(address user) external view returns (
-        uint256 adsBalance,
-        uint256 wldValue
-    ) {
-        adsBalance = balanceOf(user);
-        uint256 totalADS = totalSupply();
-
-        if (totalADS > 0 && adsBalance > 0) {
-            wldValue = (adsBalance * rewardPool) / totalADS;
-        }
-
-        return (adsBalance, wldValue);
-    }
-
-    // ============================================
-    // INTERNAL FUNCTIONS
-    // ============================================
-
-    /**
-     * @notice Recover signer from signature
-     */
-    function _recoverSigner(bytes32 ethSignedHash, bytes memory signature)
-        internal
-        pure
-        returns (address)
-    {
+    function _recoverSigner(bytes32 ethSignedHash, bytes calldata signature) internal pure returns (address) {
         require(signature.length == 65, "Invalid signature length");
 
         bytes32 r;
@@ -935,9 +503,9 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
         uint8 v;
 
         assembly {
-            r := mload(add(signature, 32))
-            s := mload(add(signature, 64))
-            v := byte(0, mload(add(signature, 96)))
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 32))
+            v := byte(0, calldataload(add(signature.offset, 64)))
         }
 
         return ecrecover(ethSignedHash, v, r, s);

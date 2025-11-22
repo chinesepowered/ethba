@@ -1,11 +1,7 @@
 import { auth } from '@/auth';
 import { Page } from '@/components/PageLayout';
-import { Pay } from '@/components/Pay';
-import { Transaction } from '@/components/Transaction';
-import { UserInfo } from '@/components/UserInfo';
-import { Verify } from '@/components/Verify';
-import { ViewPermissions } from '@/components/ViewPermissions';
 import { Marble, TopBar } from '@worldcoin/mini-apps-ui-kit-react';
+import { HomeContent } from './HomeContent';
 
 export default async function Home() {
   const session = await auth();
@@ -14,7 +10,7 @@ export default async function Home() {
     <>
       <Page.Header className="p-0">
         <TopBar
-          title="Home"
+          title="ADS Platform"
           endAdornment={
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold capitalize">
@@ -25,12 +21,8 @@ export default async function Home() {
           }
         />
       </Page.Header>
-      <Page.Main className="flex flex-col items-center justify-start gap-4 mb-16">
-        <UserInfo />
-        <Verify />
-        <Pay />
-        <Transaction />
-        <ViewPermissions />
+      <Page.Main className="flex flex-col items-center justify-start gap-6 mb-16 px-4">
+        <HomeContent userAddress={session?.user.address} />
       </Page.Main>
     </>
   );

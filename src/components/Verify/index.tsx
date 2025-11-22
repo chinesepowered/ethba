@@ -3,47 +3,49 @@ import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
 import { MiniKit, VerificationLevel } from '@worldcoin/minikit-js';
 import { useState } from 'react';
 
+interface VerifyProps {
+  onRegistrationComplete?: () => void;
+}
+
 /**
- * This component is an example of how to use World ID in Mini Apps
- * Minikit commands must be used on client components
- * It's critical you verify the proof on the server side
- * Read More: https://docs.world.org/mini-apps/commands/verify#verifying-the-proof
+ * Register for ADS platform using World ID
+ * After verification, the user is registered on the smart contract
  */
-export const Verify = () => {
+export const Verify = ({ onRegistrationComplete }: VerifyProps) => {
   const [buttonState, setButtonState] = useState<
     'pending' | 'success' | 'failed' | undefined
   >(undefined);
 
-  const [whichVerification, setWhichVerification] = useState<VerificationLevel>(
-    VerificationLevel.Device,
-  );
-
-  const onClickVerify = async (verificationLevel: VerificationLevel) => {
+  const onClickVerify = async () => {
     setButtonState('pending');
-    setWhichVerification(verificationLevel);
+
+    const action = process.env.NEXT_PUBLIC_WLD_ACTION || 'verify-human';
+
     const result = await MiniKit.commandsAsync.verify({
-      action: 'test-action', // Make sure to create this in the developer portal -> incognito actions
-      verification_level: verificationLevel,
+      action,
+      verification_level: VerificationLevel.Device, // Device verification for demo
     });
-    console.log(result.finalPayload);
-    // Verify the proof
+
+    // Verify the proof on backend
     const response = await fetch('/api/verify-proof', {
       method: 'POST',
       body: JSON.stringify({
         payload: result.finalPayload,
-        action: 'test-action',
+        action,
       }),
     });
 
     const data = await response.json();
     if (data.verifyRes.success) {
       setButtonState('success');
-      // Normally you'd do something here since the user is verified
-      // Here we'll just do nothing
+
+      // TODO: Call smart contract to register user
+      // This would require transaction signing via MiniKit
+
+      onRegistrationComplete?.();
     } else {
       setButtonState('failed');
 
-      // Reset the button state after 3 seconds
       setTimeout(() => {
         setButtonState(undefined);
       }, 2000);
@@ -52,49 +54,27 @@ export const Verify = () => {
 
   return (
     <div className="grid w-full gap-4">
-      <p className="text-lg font-semibold">Verify</p>
+      <p className="text-lg font-semibold">Register with World ID</p>
+      <p className="text-sm text-gray-600">
+        Verify your humanity to claim ad rewards on the ADS platform
+      </p>
       <LiveFeedback
         label={{
           failed: 'Failed to verify',
-          pending: 'Verifying',
-          success: 'Verified',
+          pending: 'Verifying...',
+          success: 'Verified! You can now claim rewards',
         }}
-        state={
-          whichVerification === VerificationLevel.Device
-            ? buttonState
-            : undefined
-        }
+        state={buttonState}
         className="w-full"
       >
         <Button
-          onClick={() => onClickVerify(VerificationLevel.Device)}
-          disabled={buttonState === 'pending'}
-          size="lg"
-          variant="tertiary"
-          className="w-full"
-        >
-          Verify (Device)
-        </Button>
-      </LiveFeedback>
-      <LiveFeedback
-        label={{
-          failed: 'Failed to verify',
-          pending: 'Verifying',
-          success: 'Verified',
-        }}
-        state={
-          whichVerification === VerificationLevel.Orb ? buttonState : undefined
-        }
-        className="w-full"
-      >
-        <Button
-          onClick={() => onClickVerify(VerificationLevel.Orb)}
+          onClick={onClickVerify}
           disabled={buttonState === 'pending'}
           size="lg"
           variant="primary"
           className="w-full"
         >
-          Verify (Orb)
+          Verify with World ID (Device)
         </Button>
       </LiveFeedback>
     </div>

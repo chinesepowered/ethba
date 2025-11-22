@@ -16,7 +16,38 @@ import "@worldcoin/world-id-contracts/src/libraries/ByteHasher.sol";
  * - 1-minute cycles (instead of 24 hours)
  * - Device-level World ID (groupId = 0)
  * - Manual cycle ending for easier demonstrations
+ *
+ * World Chain Compatibility:
+ * - Uses Permit2 for advertiser bids (no approve() needed)
+ * - Direct transfer() for user claims and refunds
  */
+
+// Permit2 interfaces
+interface IPermit2 {
+    struct PermitTransferFrom {
+        TokenPermissions permitted;
+        uint256 nonce;
+        uint256 deadline;
+    }
+
+    struct TokenPermissions {
+        address token;
+        uint256 amount;
+    }
+
+    struct SignatureTransferDetails {
+        address to;
+        uint256 requestedAmount;
+    }
+
+    function permitTransferFrom(
+        PermitTransferFrom calldata permit,
+        SignatureTransferDetails calldata transferDetails,
+        address owner,
+        bytes calldata signature
+    ) external;
+}
+
 contract ADSDemo is Ownable, ReentrancyGuard {
     using ByteHasher for bytes;
 
@@ -52,6 +83,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     // ============ State Variables ============
 
     IERC20 public immutable WLD;
+    IPermit2 public immutable permit2;
     IWorldID public immutable worldId;
     uint256 internal immutable externalNullifier;
     uint256 internal immutable groupId = 0; // DEMO: Device verification
@@ -114,11 +146,13 @@ contract ADSDemo is Ownable, ReentrancyGuard {
 
     constructor(
         address _wldToken,
+        address _permit2,
         address _worldId,
         string memory _appId,
         string memory _action
     ) Ownable(msg.sender) {
         WLD = IERC20(_wldToken);
+        permit2 = IPermit2(_permit2);
         worldId = IWorldID(_worldId);
         externalNullifier = abi.encodePacked(abi.encodePacked(_appId).hashToField(), _action).hashToField();
     }
@@ -155,7 +189,9 @@ contract ADSDemo is Ownable, ReentrancyGuard {
         string calldata description,
         string calldata imageUrl,
         uint256 bidAmount,
-        SlotType slotType
+        SlotType slotType,
+        IPermit2.PermitTransferFrom calldata permit,
+        bytes calldata signature
     ) external nonReentrant {
         if (bannedAdvertisers[msg.sender]) revert AdvertiserIsBanned();
         if (cycle != _getCurrentCycle()) revert InvalidCycle();
@@ -170,9 +206,18 @@ contract ADSDemo is Ownable, ReentrancyGuard {
             lockedFunds -= slot.bidAmount;
         }
 
-        // Accept new bid
-        bool success = WLD.transferFrom(msg.sender, address(this), bidAmount);
-        if (!success) revert TransferFailed();
+        // Accept new bid via Permit2
+        IPermit2.SignatureTransferDetails memory transferDetails = IPermit2.SignatureTransferDetails({
+            to: address(this),
+            requestedAmount: bidAmount
+        });
+
+        permit2.permitTransferFrom(
+            permit,
+            transferDetails,
+            msg.sender,
+            signature
+        );
 
         slot.advertiser = msg.sender;
         slot.name = name;

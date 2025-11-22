@@ -13,33 +13,38 @@ import { getNewNonces } from './server-helpers';
  * @throws {Error} If wallet authentication fails at any step.
  */
 export const walletAuth = async () => {
-  const { nonce, signedNonce } = await getNewNonces();
+  try {
+    const { nonce, signedNonce } = await getNewNonces();
 
-  const result = await MiniKit.commandsAsync.walletAuth({
-    nonce,
-    expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    statement: `Authenticate (${crypto.randomUUID().replace(/-/g, '')}).`,
-  });
-  console.log('Result', result);
-  if (!result) {
-    throw new Error('No response from wallet auth');
+    const result = await MiniKit.commandsAsync.walletAuth({
+      nonce,
+      expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      statement: `Authenticate (${crypto.randomUUID().replace(/-/g, '')}).`,
+    });
+    console.log('Result', result);
+    if (!result) {
+      throw new Error('No response from wallet auth');
+    }
+
+    if (result.finalPayload.status !== 'success') {
+      console.error(
+        'Wallet authentication failed',
+        result.finalPayload.error_code,
+      );
+      throw new Error(`Wallet authentication failed: ${result.finalPayload.error_code}`);
+    } else {
+      console.log(result.finalPayload);
+    }
+
+    await signIn('credentials', {
+      redirectTo: '/home',
+      nonce,
+      signedNonce,
+      finalPayloadJson: JSON.stringify(result.finalPayload),
+    });
+  } catch (error) {
+    console.error('Wallet authentication error:', error);
+    throw error; // Re-throw so the UI can handle it
   }
-
-  if (result.finalPayload.status !== 'success') {
-    console.error(
-      'Wallet authentication failed',
-      result.finalPayload.error_code,
-    );
-    return;
-  } else {
-    console.log(result.finalPayload);
-  }
-
-  await signIn('credentials', {
-    redirectTo: '/home',
-    nonce,
-    signedNonce,
-    finalPayloadJson: JSON.stringify(result.finalPayload),
-  });
 };

@@ -37,7 +37,7 @@ export function CycleManager() {
           onClick={handleProgressCycle}
           disabled={isProgressing || currentCycle === null}
           variant="primary"
-          size="md"
+          size="lg"
           className="bg-white text-blue-600 hover:bg-gray-100 disabled:opacity-50 flex items-center gap-2"
         >
           {isProgressing ? (

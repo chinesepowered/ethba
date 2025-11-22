@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { createPublicClient, http, type Address, type PublicClient, type Transport, type Chain } from 'viem';
-import { worldchain } from 'viem/chains';
+import { useState } from 'react';
+import { type Address } from 'viem';
 import { MiniKit } from '@worldcoin/minikit-js';
-import { CONTRACTS, CHAIN_CONFIG } from '@/config/contracts';
+import { CONTRACTS } from '@/config/contracts';
 import { ADS_DEMO_ABI } from '@/config/abi';
+import { useADSClient } from './useADSClient';
 
 export interface AdSlot {
   advertiser: string;
@@ -32,39 +32,28 @@ export interface ClaimableRewards {
 }
 
 export function useADSContract() {
-  const [publicClient, setPublicClient] = useState<PublicClient<Transport, Chain> | null>(null);
+  const client = useADSClient(); // Use stable client from hook
   const [currentCycle, setCurrentCycle] = useState<bigint | null>(null);
   const [currentAds, setCurrentAds] = useState<AdSlot[]>([]);
   const [poolBalances, setPoolBalances] = useState<PoolBalances | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Initialize viem public client for read operations
-  useEffect(() => {
-    const client = createPublicClient({
-      chain: worldchain,
-      transport: http(CHAIN_CONFIG.rpcUrl),
-    }) as PublicClient<Transport, Chain>;
-    setPublicClient(client);
-  }, []);
-
   // Fetch current cycle and ads
   const refreshData = async () => {
-    if (!publicClient) return;
-
     setLoading(true);
     try {
       const [cycle, ads, balances] = await Promise.all([
-        publicClient.readContract({
+        client.readContract({
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_DEMO_ABI,
           functionName: 'getCurrentCycle',
         }),
-        publicClient.readContract({
+        client.readContract({
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_DEMO_ABI,
           functionName: 'getCurrentAds',
         }),
-        publicClient.readContract({
+        client.readContract({
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_DEMO_ABI,
           functionName: 'getPoolBalances',
@@ -87,9 +76,8 @@ export function useADSContract() {
     cycle: bigint,
     slotIndex: number
   ): Promise<boolean> => {
-    if (!publicClient) return false;
     try {
-      const result = await publicClient.readContract({
+      const result = await client.readContract({
         address: CONTRACTS.ADS_DEMO,
         abi: ADS_DEMO_ABI,
         functionName: 'hasUserClicked',
@@ -104,9 +92,8 @@ export function useADSContract() {
 
   // Check if user is registered
   const isUserRegistered = async (userAddress: string): Promise<boolean> => {
-    if (!publicClient) return false;
     try {
-      const result = await publicClient.readContract({
+      const result = await client.readContract({
         address: CONTRACTS.ADS_DEMO,
         abi: ADS_DEMO_ABI,
         functionName: 'isRegistered',
@@ -121,9 +108,8 @@ export function useADSContract() {
 
   // Get user's claimable rewards
   const getUserClaimableRewards = async (userAddress: string): Promise<ClaimableRewards> => {
-    if (!publicClient) return { cycles: [], slots: [], amounts: [] };
     try {
-      const result = await publicClient.readContract({
+      const result = await client.readContract({
         address: CONTRACTS.ADS_DEMO,
         abi: ADS_DEMO_ABI,
         functionName: 'getUserClaimableRewards',
@@ -270,7 +256,7 @@ export function useADSContract() {
   };
 
   return {
-    publicClient,
+    client,
     currentCycle,
     currentAds,
     poolBalances,

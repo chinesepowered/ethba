@@ -1,4 +1,4 @@
-import { hashNonce } from '@/auth/wallet/client-helpers';
+import { hashNonce } from '@/auth/wallet/server-helpers';
 import {
   MiniAppWalletAuthSuccessPayload,
   MiniKit,
@@ -27,6 +27,7 @@ declare module 'next-auth' {
 // For more information on each option (and a full list of options) go to
 // https://authjs.dev/getting-started/authentication/credentials
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt' },
   providers: [
@@ -47,7 +48,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         signedNonce: string;
         finalPayloadJson: string;
       }) => {
-        const expectedSignedNonce = hashNonce({ nonce });
+        const expectedSignedNonce = await hashNonce({ nonce });
 
         if (signedNonce !== expectedSignedNonce) {
           console.log('Invalid signed nonce');
@@ -73,6 +74,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user;
+      const pathname = nextUrl.pathname;
+
+      console.log(`[Middleware] Path: ${pathname}, User: ${auth?.user?.id}, IsLoggedIn: ${isLoggedIn}`);
+
+      const isOnProtectedAppRoute = pathname.startsWith('/home');
+      const isOnProtectedApiRoute = pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/');
+
+      const isProtectedRoute = isOnProtectedAppRoute || isOnProtectedApiRoute;
+
+      if (isProtectedRoute) {
+        if (isLoggedIn) return true;
+        return false;
+      } else if (isLoggedIn && pathname === '/') {
+        console.log('[Middleware] User is logged in on root page. Redirecting to /home...');
+        return Response.redirect(new URL('/home', nextUrl));
+      }
+
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.userId = user.id;
@@ -86,7 +108,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     session: async ({ session, token }) => {
       if (token.userId) {
         session.user.id = token.userId as string;
-        session.user.walletAddress = token.address as string;
+        session.user.walletAddress = token.walletAddress as string;
         session.user.username = token.username as string;
         session.user.profilePictureUrl = token.profilePictureUrl as string;
       }

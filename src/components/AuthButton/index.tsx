@@ -2,7 +2,7 @@
 import { walletAuth } from '@/auth/wallet';
 import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
 import { useMiniKit } from '@worldcoin/minikit-js/minikit-provider';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 /**
  * This component is an example of how to authenticate a user
@@ -25,25 +25,6 @@ export const AuthButton = () => {
       setIsPending(false);
       return;
     }
-
-    setIsPending(false);
-  }, [isInstalled, isPending]);
-
-  useEffect(() => {
-    const authenticate = async () => {
-      if (isInstalled && !isPending) {
-        setIsPending(true);
-        try {
-          await walletAuth();
-        } catch (error) {
-          console.error('Auto wallet authentication error', error);
-        } finally {
-          setIsPending(false);
-        }
-      }
-    };
-
-    authenticate();
   }, [isInstalled, isPending]);
 
   return (
@@ -60,6 +41,7 @@ export const AuthButton = () => {
         disabled={isPending}
         size="lg"
         variant="primary"
+        className="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white shadow-md hover:shadow-lg transition-all"
       >
         Login with Wallet
       </Button>

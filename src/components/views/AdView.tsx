@@ -30,22 +30,15 @@ const SLOT_TYPE_NAMES = [
 ];
 
 export function AdView({ userAddress }: AdViewProps) {
-  const { currentCycle, currentAds, loading, refreshData, recordClick, isUserRegistered } = useADSContract();
+  const { currentCycle, currentAds, loading, refreshData, recordClick } = useADSContract();
   const [clicking, setClicking] = useState<{ [key: number]: boolean }>({});
-  const [isRegistered, setIsRegistered] = useState(false);
   const [userEligibility, setUserEligibility] = useState<{ [key: number]: boolean }>({});
 
   useEffect(() => {
     refreshData();
-    checkRegistration();
     checkEligibility();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userAddress]);
-
-  const checkRegistration = async () => {
-    const registered = await isUserRegistered(userAddress);
-    setIsRegistered(registered);
-  };
 
   const checkEligibility = async () => {
     // Check eligibility for each slot type
@@ -97,20 +90,7 @@ export function AdView({ userAddress }: AdViewProps) {
     }
   };
 
-  if (!isRegistered) {
-    return (
-      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-8 text-center">
-        <InfoCircle className="w-16 h-16 mx-auto mb-4 text-yellow-600" />
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Registration Required</h2>
-        <p className="text-gray-700 mb-4">
-          You need to register with World ID to click ads and earn rewards
-        </p>
-        <button className="bg-yellow-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-700 transition-colors">
-          Register with World ID
-        </button>
-      </div>
-    );
-  }
+  // Registration is now handled at the app level - this view only shows when registered
 
   return (
     <div className="space-y-6">

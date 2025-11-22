@@ -1,0 +1,261 @@
+'use client';
+
+import { useState } from 'react';
+import { useADSContract } from '@/hooks/useADSContract';
+import { Globe, MapPin, Phone, Monitor, Apple, Robot, InfoCircle } from 'iconoir-react';
+import { parseEther, formatEther } from 'viem';
+
+interface AdvertiserViewProps {
+  userAddress: string;
+}
+
+const SLOT_TYPES = [
+  { value: 0, label: 'Global', description: 'Anyone can click', icon: <Globe className="w-5 h-5" /> },
+  { value: 1, label: 'US Only', description: 'US IP addresses only', icon: <MapPin className="w-5 h-5" /> },
+  { value: 2, label: 'Argentina Only', description: 'Argentina IP addresses only', icon: <MapPin className="w-5 h-5" /> },
+  { value: 3, label: 'EU Only', description: 'EU IP addresses only', icon: <MapPin className="w-5 h-5" /> },
+  { value: 4, label: 'Asia Only', description: 'Asia IP addresses only', icon: <MapPin className="w-5 h-5" /> },
+  { value: 5, label: 'Mobile Only', description: 'Mobile devices only', icon: <Phone className="w-5 h-5" /> },
+  { value: 6, label: 'Desktop Only', description: 'Desktop devices only', icon: <Monitor className="w-5 h-5" /> },
+  { value: 7, label: 'iOS Only', description: 'iOS devices only', icon: <Apple className="w-5 h-5" /> },
+  { value: 8, label: 'Android Only', description: 'Android devices only', icon: <Robot className="w-5 h-5" /> },
+  { value: 9, label: 'Custom', description: 'Custom targeting', icon: <InfoCircle className="w-5 h-5" /> },
+];
+
+export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
+  const { currentCycle, currentAds, placeAdBid } = useADSContract();
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [bidding, setBidding] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    imageUrl: '',
+    bidAmount: '',
+    slotType: 0,
+  });
+
+  const handleSubmitBid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedSlot === null || !currentCycle) return;
+
+    setBidding(true);
+
+    try {
+      const bidAmount = parseEther(formData.bidAmount);
+
+      await placeAdBid(
+        currentCycle,
+        BigInt(selectedSlot),
+        formData.name,
+        formData.description,
+        formData.imageUrl,
+        bidAmount,
+        formData.slotType
+      );
+
+      alert('Bid placed successfully!');
+
+      // Reset form
+      setFormData({
+        name: '',
+        description: '',
+        imageUrl: '',
+        bidAmount: '',
+        slotType: 0,
+      });
+      setSelectedSlot(null);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to place bid';
+      alert(errorMessage);
+    } finally {
+      setBidding(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Advertise Your Product</h2>
+        <p className="text-sm text-gray-600">
+          Bid WLD for ad slots • Cycle {currentCycle?.toString() || '0'}
+        </p>
+      </div>
+
+      {/* Info Box */}
+      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6">
+        <h3 className="font-bold text-gray-900 mb-2">How Advertising Works</h3>
+        <ul className="text-sm text-gray-700 space-y-2">
+          <li>• Choose a slot type to target specific audiences</li>
+          <li>• Place a WLD bid for your chosen slot</li>
+          <li>• Your ad runs for the current cycle (24 hours)</li>
+          <li>• Users who match your targeting can click your ad</li>
+          <li>• Each clicker gets an equal share: (Your Bid - 5% Fee) / Total Clicks</li>
+          <li>• Higher bids attract more attention!</li>
+        </ul>
+      </div>
+
+      {/* Slot Selection */}
+      <div>
+        <h3 className="font-bold text-gray-900 mb-4">Select Ad Slot</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {Array.from({ length: 10 }).map((_, index) => {
+            const currentAd = currentAds[index];
+            const hasAd = currentAd?.advertiser !== '0x0000000000000000000000000000000000000000';
+            const isSelected = selectedSlot === index;
+
+            return (
+              <button
+                key={index}
+                onClick={() => setSelectedSlot(index)}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  isSelected
+                    ? 'border-purple-500 bg-purple-50'
+                    : hasAd
+                    ? 'border-gray-300 bg-gray-50'
+                    : 'border-gray-200 hover:border-purple-300'
+                }`}
+              >
+                <div className="text-center">
+                  <p className="font-bold text-lg mb-1">Slot {index}</p>
+                  {hasAd ? (
+                    <>
+                      <p className="text-xs text-gray-600 mb-1">Current Bid</p>
+                      <p className="text-sm font-semibold text-purple-600">
+                        {formatEther(currentAd.bidAmount)} WLD
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-500">Available</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bid Form */}
+      {selectedSlot !== null && (
+        <form onSubmit={handleSubmitBid} className="bg-white border-2 border-gray-200 rounded-xl p-6 space-y-4">
+          <h3 className="font-bold text-gray-900 text-lg">Place Bid for Slot {selectedSlot}</h3>
+
+          {/* Ad Name */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Ad Name *
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+              placeholder="e.g., Amazing Product"
+              maxLength={100}
+              required
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Description *
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+              placeholder="Describe your product or service..."
+              rows={3}
+              maxLength={500}
+              required
+            />
+          </div>
+
+          {/* Image URL */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Image URL (optional)
+            </label>
+            <input
+              type="url"
+              value={formData.imageUrl}
+              onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+              placeholder="https://example.com/image.png"
+            />
+          </div>
+
+          {/* Slot Type */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Target Audience *
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {SLOT_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, slotType: type.value })}
+                  className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left ${
+                    formData.slotType === type.value
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 hover:border-purple-300'
+                  }`}
+                >
+                  <div className={formData.slotType === type.value ? 'text-purple-600' : 'text-gray-600'}>
+                    {type.icon}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">{type.label}</p>
+                    <p className="text-xs text-gray-600">{type.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bid Amount */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Bid Amount (WLD) *
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.bidAmount}
+              onChange={(e) => setFormData({ ...formData, bidAmount: e.target.value })}
+              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+              placeholder="10.0"
+              required
+            />
+            <p className="text-xs text-gray-600 mt-1">
+              Platform fee: 5% • Users receive: 95% split equally
+            </p>
+          </div>
+
+          {/* Estimated CPM */}
+          {formData.bidAmount && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Estimated Cost Per Click</p>
+              <p className="text-lg font-bold text-purple-600">
+                {(parseFloat(formData.bidAmount) * 0.95 / 100).toFixed(4)} WLD
+              </p>
+              <p className="text-xs text-gray-600 mt-1">Based on 100 clicks (actual may vary)</p>
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={bidding}
+            className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {bidding ? 'Placing Bid...' : 'Place Bid'}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}

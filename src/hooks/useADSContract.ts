@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Contract, BrowserProvider, formatUnits, parseUnits } from 'ethers';
+import { Contract, BrowserProvider } from 'ethers';
 import { CONTRACTS } from '@/config/contracts';
 import { ADS_DEMO_ABI } from '@/config/abi';
 
@@ -17,8 +17,12 @@ export interface AdSlot {
   advertiser: string;
   name: string;
   description: string;
-  actionUrl: string;
+  imageUrl: string;
   bidAmount: bigint;
+  slotType: number;
+  totalClicks: bigint;
+  claimedAmount: bigint;
+  finalizedAt: bigint;
   exists: boolean;
   removed: boolean;
 }
@@ -29,12 +33,17 @@ export interface PoolBalances {
   fees: bigint;
 }
 
+export interface ClaimableRewards {
+  cycles: bigint[];
+  slots: bigint[];
+  amounts: bigint[];
+}
+
 export function useADSContract() {
   const [contract, setContract] = useState<Contract | null>(null);
   const [currentCycle, setCurrentCycle] = useState<bigint | null>(null);
   const [currentAds, setCurrentAds] = useState<AdSlot[]>([]);
   const [poolBalances, setPoolBalances] = useState<PoolBalances | null>(null);
-  const [userBalance, setUserBalance] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
 
   // Initialize contract
@@ -70,11 +79,6 @@ export function useADSContract() {
       setCurrentCycle(cycle);
       setCurrentAds(ads);
       setPoolBalances(balances);
-
-      if (userAddress) {
-        const balance = await contract.balanceOf(userAddress);
-        setUserBalance(balance);
-      }
     } catch (error) {
       console.error('Failed to fetch contract data:', error);
     } finally {
@@ -82,17 +86,17 @@ export function useADSContract() {
     }
   };
 
-  // Check if user has claimed an ad
-  const hasUserClaimed = async (
+  // Check if user has clicked an ad
+  const hasUserClicked = async (
     userAddress: string,
     cycle: bigint,
     slotIndex: number
   ): Promise<boolean> => {
     if (!contract) return false;
     try {
-      return await contract.hasUserClaimed(userAddress, cycle, slotIndex);
+      return await contract.hasUserClicked(userAddress, cycle, slotIndex);
     } catch (error) {
-      console.error('Failed to check claim status:', error);
+      console.error('Failed to check click status:', error);
       return false;
     }
   };
@@ -108,34 +112,35 @@ export function useADSContract() {
     }
   };
 
-  // Get swap output estimate
-  const getSwapEstimate = async (adsAmount: string): Promise<string> => {
-    if (!contract) return '0';
+  // Get user's claimable rewards
+  const getUserClaimableRewards = async (userAddress: string): Promise<ClaimableRewards> => {
+    if (!contract) return { cycles: [], slots: [], amounts: [] };
     try {
-      const amount = parseUnits(adsAmount, 18);
-      const wldAmount = await contract.calculateSwapOutput(amount);
-      return formatUnits(wldAmount, 18);
+      const result = await contract.getUserClaimableRewards(userAddress);
+      return {
+        cycles: result[0],
+        slots: result[1],
+        amounts: result[2],
+      };
     } catch (error) {
-      console.error('Failed to calculate swap:', error);
-      return '0';
+      console.error('Failed to get claimable rewards:', error);
+      return { cycles: [], slots: [], amounts: [] };
     }
   };
 
-  // Claim reward
-  const claimReward = async (
+  // Record a click on an ad
+  const recordClick = async (
     cycle: bigint,
     slotIndex: number,
-    rewardAmount: bigint,
     nonce: number,
     timestamp: number,
     signature: string
   ) => {
     if (!contract) throw new Error('Contract not initialized');
 
-    const tx = await contract.claimReward(
+    const tx = await contract.recordClick(
       cycle,
       slotIndex,
-      rewardAmount,
       nonce,
       timestamp,
       signature
@@ -144,12 +149,61 @@ export function useADSContract() {
     return await tx.wait();
   };
 
-  // Swap ADS for WLD
-  const swapADSForWLD = async (adsAmount: string) => {
+  // Claim reward (proportional share calculated by contract)
+  const claimReward = async (
+    cycle: bigint,
+    slotIndex: bigint
+  ) => {
     if (!contract) throw new Error('Contract not initialized');
 
-    const amount = parseUnits(adsAmount, 18);
-    const tx = await contract.swapADSForWLD(amount);
+    const tx = await contract.claimReward(cycle, slotIndex);
+
+    return await tx.wait();
+  };
+
+  // Place ad bid using Permit2
+  const placeAdBid = async (
+    cycle: bigint,
+    slotIndex: bigint,
+    name: string,
+    description: string,
+    imageUrl: string,
+    bidAmount: bigint,
+    slotType: number
+  ) => {
+    if (!contract) throw new Error('Contract not initialized');
+
+    // In World Mini Apps, we'll use MiniKit's sendTransaction command
+    // For now, this is a placeholder that will be replaced with MiniKit integration
+    // The frontend will need to:
+    // 1. Create Permit2 permit object
+    // 2. Get user signature via MiniKit
+    // 3. Call contract.placeAdBid with permit and signature
+
+    // Placeholder signature construction
+    const permit = {
+      permitted: {
+        token: CONTRACTS.WLD_TOKEN,
+        amount: bidAmount.toString(),
+      },
+      nonce: Date.now(),
+      deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+    };
+
+    // This will be replaced with actual MiniKit signature in production
+    const signature = '0x' + '00'.repeat(65); // Placeholder
+
+    const tx = await contract.placeAdBid(
+      cycle,
+      slotIndex,
+      name,
+      description,
+      imageUrl,
+      bidAmount,
+      slotType,
+      permit,
+      signature
+    );
 
     return await tx.wait();
   };
@@ -159,13 +213,13 @@ export function useADSContract() {
     currentCycle,
     currentAds,
     poolBalances,
-    userBalance,
     loading,
     refreshData,
-    hasUserClaimed,
+    hasUserClicked,
     isUserRegistered,
-    getSwapEstimate,
+    getUserClaimableRewards,
+    recordClick,
     claimReward,
-    swapADSForWLD,
+    placeAdBid,
   };
 }

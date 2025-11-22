@@ -107,7 +107,7 @@ export function RegistrationView() {
       const registered = await client.readContract({
         address: CONTRACTS.ADS_DEMO,
         abi: ADS_DEMO_ABI,
-        functionName: 'isRegistered',
+        functionName: 'registered',
         args: [walletAddress],
       }) as boolean;
 
@@ -187,7 +187,7 @@ export function RegistrationView() {
         transaction: [{
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_DEMO_ABI,
-          functionName: 'registerUser',
+          functionName: 'register',
           args: [
             walletAddress, // signal should be the wallet address
             verificationData.root,

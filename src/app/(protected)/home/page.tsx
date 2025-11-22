@@ -46,7 +46,7 @@ export default function HomePage() {
         const registered = await client.readContract({
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_DEMO_ABI,
-          functionName: 'isRegistered',
+          functionName: 'registered',
           args: [walletAddress],
         }) as boolean;
 

@@ -80,8 +80,8 @@ export function useADSContract() {
       const result = await client.readContract({
         address: CONTRACTS.ADS_DEMO,
         abi: ADS_DEMO_ABI,
-        functionName: 'hasUserClicked',
-        args: [userAddress as Address, cycle, BigInt(slotIndex)],
+        functionName: 'hasClicked',
+        args: [cycle, BigInt(slotIndex), userAddress as Address],
       });
       return result as boolean;
     } catch (error) {
@@ -96,7 +96,7 @@ export function useADSContract() {
       const result = await client.readContract({
         address: CONTRACTS.ADS_DEMO,
         abi: ADS_DEMO_ABI,
-        functionName: 'isRegistered',
+        functionName: 'registered',
         args: [userAddress as Address],
       });
       return result as boolean;

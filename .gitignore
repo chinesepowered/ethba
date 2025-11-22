@@ -10,8 +10,16 @@
 !.yarn/releases
 !.yarn/versions
 
+# backend dependencies and build
+backend/node_modules
+backend/dist
+backend/.pnpm-debug.log*
+backend/npm-debug.log*
+backend/*.log
+
 # testing
 /coverage
+/backend/coverage
 
 # next.js
 /.next/
@@ -40,3 +48,25 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.sample
+
+# Oasis ROFL build artifacts
+*.orc
+rofl.yaml.bak
+
+# Docker
+.dockerignore.bak
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,317 +1,211 @@
-# ADS Platform - Decentralized Advertising with World ID
+# ADS Platform
 
-A hackathon-ready decentralized advertising platform built on World Chain with World ID verification, dynamic geo-based rewards, and optional TEE deployment on Oasis.
+**Decentralized Advertising with Verified Audiences**
 
-## 🎯 Project Overview
+A blockchain-based advertising platform that rewards users for viewing ads while providing advertisers with sybil-resistant, verified audiences through World ID integration.
 
-Users earn **ADS tokens** by clicking ads. Advertisers bid **WLD tokens** for ad slots. The platform uses:
+## What is ADS?
 
-- ⚡ **1-minute cycles** (demo) or daily cycles (production)
-- 🌍 **Geo-based rewards**: Different token amounts for Argentina vs. other countries
-- 📱 **Device bonuses**: Extra rewards for iOS users
-- 🔐 **World ID verification**: Sybil-resistant claims
-- 🏷️ **ENS integration**: Shows advertiser names from Ethereum mainnet with verification
-- 🔒 **TEE-ready backend**: Optional deployment to Oasis ROFL for trustless execution
+ADS (Advertising Distribution System) reimagines digital advertising by aligning incentives between users and advertisers:
 
-## 📁 Repository Structure
+- **Users earn tokens** by viewing and engaging with advertisements
+- **Advertisers reach verified humans** protected by World ID sybil resistance
+- **Fair value distribution** through transparent on-chain mechanics
+- **Privacy-preserving rewards** with dynamic compensation based on user context
 
-```
-ethba/
-├── contracts/
-│   ├── ADS.sol          # Production contract (daily cycles, orb verification)
-│   └── ADSDemo.sol      # Demo contract (1-min cycles, device verification, seeding)
-│
-├── src/
-│   ├── app/
-│   │   ├── (protected)/home/      # Main ad viewing page
-│   │   └── api/
-│   │       ├── sign-claim/        # Backend signs claims with dynamic rewards
-│   │       └── verify-proof/      # World ID verification
-│   ├── components/
-│   │   ├── AdCard/                # Ad display with ENS names
-│   │   ├── Stats/                 # Pool balances & user stats
-│   │   ├── SwapCard/              # ADS → WLD swapping
-│   │   └── Verify/                # World ID registration
-│   ├── hooks/
-│   │   ├── useADSContract.ts      # Contract interaction
-│   │   └── useENS.ts              # ENS reverse resolution with verification
-│   └── config/
-│       ├── contracts.ts           # Addresses & chain config
-│       └── abi.ts                 # Contract ABIs
-│
-├── FRONTEND_README.md             # Frontend documentation
-├── OASIS_ROFL_GUIDE.md           # TEE deployment guide
-└── README.md                      # This file
-```
+## Key Features
 
-## 🚀 Quick Start
+### For Users
 
-### 1. Install Dependencies
+- **Earn While You Browse**: Get paid in ADS tokens for viewing advertisements
+- **Dynamic Rewards**: Compensation varies based on your location and device
+- **Instant Swaps**: Exchange earned ADS tokens for WLD from the reward pool
+- **Privacy First**: No tracking beyond what's necessary for fair compensation
+- **Sybil Protection**: World ID ensures one person = one account
+
+### For Advertisers
+
+- **Verified Audiences**: Reach real humans, not bots or duplicate accounts
+- **Auction-Based Pricing**: Bid for ad slots in competitive cycles
+- **Transparent Metrics**: On-chain visibility into ad performance
+- **ENS Integration**: Build brand recognition with your ENS name
+- **Flexible Cycles**: Choose between rapid (1-minute) or daily (24-hour) campaigns
+
+## How It Works
+
+### 1. User Registration
+- Open the Mini App in World App
+- Complete World ID verification (device or orb level)
+- Start earning immediately
+
+### 2. View & Earn
+- Browse current cycle's advertisements
+- Click ads that interest you
+- Claim ADS token rewards
+- Reward amounts vary by location and device
+
+### 3. Swap Tokens
+- Exchange ADS tokens for WLD
+- Proportional swaps from the reward pool
+- Instant settlement on-chain
+
+### 4. Advertiser Bidding
+- Place WLD bids for ad slots
+- Compete in auction-based cycles
+- Reach verified human audiences
+
+## Dynamic Rewards
+
+The platform uses context-aware reward distribution:
+
+| User Context | Base Reward | iOS Bonus | Total |
+|-------------|-------------|-----------|-------|
+| Argentina + Android | 1 ADS | - | **1 ADS** |
+| Other Countries + Android | 2 ADS | - | **2 ADS** |
+| Argentina + iOS | 1 ADS | +1 ADS | **2 ADS** |
+| Other Countries + iOS | 2 ADS | +1 ADS | **3 ADS** |
+
+Rewards are cryptographically signed by the backend to prevent manipulation.
+
+## Security & Trust
+
+### Cryptographic Signature Verification
+Users cannot forge or modify reward amounts. Every claim requires a valid signature from the authorized backend signer.
+
+### Cross-Chain Name Resolution
+Advertiser names are resolved from Arbitrum One, demonstrating cross-chain identity:
+1. Address → Name lookup on Arbitrum
+2. Name → Address verification
+3. Only displayed if addresses match
+
+**Why Arbitrum names?**
+- Demonstrates cross-chain trust and identity portability
+- World ID provides sybil resistance, Arbitrum names provide established identity
+- Shows how reputation from one chain carries over to another
+- No need for separate names on every chain
+
+This prevents spoofing attacks and showcases interoperability.
+
+### World ID Integration
+- **Orb Verification** (Production): One claim per unique human
+- **Device Verification** (Demo): One claim per device
+- Prevents sybil attacks and multi-accounting
+
+### Trusted Execution Environment
+Optionally deploy the backend to Oasis ROFL for:
+- Verifiable computation
+- Encrypted key storage
+- Decentralized execution
+- Auditable code
+
+## Technology Stack
+
+Built on cutting-edge Web3 infrastructure:
+
+- **Blockchain**: World Chain (EVM-compatible)
+- **Identity**: World ID verification
+- **Smart Contracts**: Solidity with OpenZeppelin security
+- **Frontend**: Next.js + React (World Mini App)
+- **Naming**: ENS (Ethereum Mainnet)
+- **Optional TEE**: Oasis ROFL
+
+## Quick Start
 
 ```bash
+# Install dependencies
 pnpm install
-```
 
-### 2. Configure Environment
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your values
 
-Update `.env.local`:
-
-```bash
-# World ID
-NEXT_PUBLIC_APP_ID="app_staging_xxx"
-NEXT_PUBLIC_WLD_ACTION="verify-human"
-
-# Contracts (deploy first)
-NEXT_PUBLIC_ADS_DEMO_CONTRACT_ADDRESS="0x..."
-NEXT_PUBLIC_WLD_TOKEN_ADDRESS="0x..."
-
-# World Chain
-NEXT_PUBLIC_CHAIN_ID="480"
-NEXT_PUBLIC_RPC_URL="https://worldchain-mainnet.g.alchemy.com/public"
-
-# Backend signer
-SIGNER_PRIVATE_KEY="0x..."
-```
-
-### 3. Deploy Contracts
-
-```bash
-# Deploy ADSDemo to World Chain mainnet
-# Update contract addresses in .env.local
-```
-
-### 4. Run Development Server
-
-```bash
+# Run development server
 pnpm dev
-```
 
-Access via ngrok for World App testing:
-
-```bash
+# For World App testing (use ngrok)
 ngrok http 3000
-# Update AUTH_URL in .env.local
 ```
 
-## 🎮 Demo Flow
+See [DEPLOY.md](./DEPLOY.md) for complete deployment instructions.
 
-### For Judges/Users
+## Contract Variants
 
-1. **Open Mini App** in World App
-2. **Register** with World ID (device-level verification)
-3. **View Ads** for current cycle (1-minute in demo)
-4. **Click Ad** → Request signature from backend
-5. **Claim Reward** → Receive ADS tokens (amount varies by location/device)
-6. **Swap Tokens** → Exchange ADS for WLD from reward pool
-
-### For Demo Setup (Hackathon)
-
-The ADSDemo contract has seeding functions for instant setup:
-
-```solidity
-// Seed demo data (owner only)
-seedRegistration(address user)           // Bypass World ID
-seedAdSlot(cycle, slot, advertiser, ...) // Create fake ads
-seedADSBalance(user, amount)             // Give users ADS tokens
-seedRewardPool(wldAmount)                // Add WLD to pool
-forceAdvanceCycle()                      // Skip 1-minute wait
-```
-
-Result: **Live ecosystem** with history, other users, and working swaps in <5 minutes!
-
-## 🏗️ Smart Contract Architecture
-
-### Production: ADS.sol
-
+### Production (`ADS.sol`)
 - **Cycles**: 24 hours (daily)
-- **Verification**: Orb-verified World ID (groupId = 1)
+- **Verification**: Orb-level World ID
 - **Use Case**: Real platform deployment
 
-### Demo: ADSDemo.sol
+### Demo (`ADSDemo.sol`)
+- **Cycles**: 1 minute (rapid testing)
+- **Verification**: Device-level World ID
+- **Seeding**: Pre-populated test data
+- **Use Case**: Development and demonstrations
 
-- **Cycles**: 1 minute
-- **Verification**: Device-level World ID (groupId = 0)
-- **Seeding**: Owner can populate test data
-- **Use Case**: Hackathon demos, testing
+## Architecture Highlights
 
-### Key Features (Both Contracts)
+### Pull Payment Pattern
+Platform fees are accumulated and withdrawn separately, preventing contract bricking if fee transfers fail.
 
-✅ **Dynamic rewards** via backend signature
-✅ **Auction-based bidding** for ad slots
-✅ **Automatic cycle management**
-✅ **Pool-based token swapping**
-✅ **Pull payment pattern** for fees (prevents bricking)
-✅ **World ID sybil resistance**
+### Automatic Cycle Management
+Cycles finalize automatically, unlocking funds and enabling swaps without manual intervention.
 
-## 🌐 ENS Integration
+### Proportional Swapping
+Token swaps use the formula: `(userADS / totalADS) × rewardPool`
 
-### Proper Reverse Resolution with Verification
+This ensures fair value distribution as the token supply changes.
 
-Following [ENS best practices](https://docs.ens.domains/web/reverse):
+### Ad Slot Auctions
+Advertisers compete for slots by placing WLD bids. Higher bids displace lower ones, with automatic refunds.
 
-1. **Reverse lookup**: `address` → `name.eth`
-2. **Forward verification**: `name.eth` → `address`
-3. **Security check**: Only display if addresses match
+## Privacy & Transparency
 
-**Why?** Prevents spoofing attacks where malicious actors set fake reverse records.
+**What We Track:**
+- Geo-IP country code (for reward calculation)
+- Device type (for reward bonuses)
+- World ID verification status
+- On-chain claim history
 
-**Network**: Ethereum Mainnet (supports L2 primary names automatically)
+**What We Don't Track:**
+- Personal information
+- Browsing history outside the app
+- Precise location data
+- User behavior across sites
 
-## 🔐 Security Model
+**Transparency:**
+- All contracts are open source
+- Ad bids and claims are on-chain
+- Reward calculations are verifiable
+- Optional TEE deployment for trustless execution
 
-### Backend Signature Verification
+## Future Roadmap
 
-The contract ensures users can't claim without backend approval:
+- [ ] Advertiser dashboard with analytics
+- [ ] Click tracking with proof-of-view
+- [ ] Cycle start notifications
+- [ ] User claim history viewer
+- [ ] Top earners leaderboard
+- [ ] Referral system
+- [ ] Advanced ad targeting options
 
-```solidity
-// Contract recreates message hash
-bytes32 messageHash = keccak256(abi.encodePacked(
-    msg.sender,
-    cycle,
-    slotIndex,
-    rewardAmount,    // ← User cannot modify this
-    nonce,
-    timestamp
-));
+## Documentation
 
-// Verifies signature from authorized signer
-address signer = ecrecover(ethSignedHash, signature);
-require(authorizedSigners[signer], "Not authorized");
-```
+- **[PROJECT.md](./PROJECT.md)**: Complete technical documentation for developers
+- **[DEPLOY.md](./DEPLOY.md)**: Step-by-step deployment guide
+- **[OASIS_QUICKSTART.md](./OASIS_QUICKSTART.md)**: Deploy to Oasis ROFL TEE in 10 minutes
+- **Contracts**: See `contracts/` directory for Solidity source
+- **Backend**: See `backend/` directory for TEE signing service
 
-**Users cannot:**
-- ❌ Forge signatures (need backend's private key)
-- ❌ Modify reward amounts (breaks signature)
-- ❌ Reuse signatures (nonce tracking)
-- ❌ Claim without clicking (backend controls signatures)
+## Support & Community
 
-### Reward Calculation (Backend)
-
-```typescript
-let reward = parseEther('1'); // Base: 1 ADS
-
-// Geo-IP detection
-if (country !== 'AR') {
-  reward = parseEther('2'); // Non-Argentina: 2 ADS
-}
-
-// Device bonus
-if (isIOS) {
-  reward += parseEther('1'); // iOS: +1 ADS
-}
-```
-
-**Example scenarios:**
-- 🇦🇷 Argentina + Android = **1 ADS**
-- 🇺🇸 USA + Android = **2 ADS**
-- 🇦🇷 Argentina + iOS = **2 ADS**
-- 🇺🇸 USA + iOS = **3 ADS**
-
-## 🛡️ TEE Deployment (Optional)
-
-For maximum trust, deploy the backend to **Oasis ROFL** (Trusted Execution Environment):
-
-### Benefits
-
-1. **Trustless**: Users can verify signatures come from legitimate TEE
-2. **Secure keys**: Private key encrypted and isolated
-3. **Verifiable**: Reward calculations provably executed correctly
-4. **Decentralized**: No single point of failure
-5. **Auditable**: Code is on-chain and inspectable
-
-### Quick Deploy
-
-```bash
-# 1. Build Docker image
-cd backend
-docker build -t username/ads-backend .
-docker push username/ads-backend
-
-# 2. Initialize ROFL
-oasis rofl init
-
-# 3. Register on-chain
-oasis rofl create --network testnet
-
-# 4. Store private key securely
-oasis rofl secret set SIGNER_PRIVATE_KEY --value "0x..."
-
-# 5. Deploy to TEE
-oasis rofl build --output ads-backend.orc
-oasis rofl deploy ads-backend.orc --network testnet
-```
-
-**Result**: Backend runs in **verifiable TEE** with cryptographic attestation!
-
-📖 **Full Guide**: See [OASIS_ROFL_GUIDE.md](./OASIS_ROFL_GUIDE.md)
-
-## 🎨 Frontend Features
-
-- ✅ **Mobile-first design** (World App requirement)
-- ✅ **Real-time stats** (pool balances, user balance)
-- ✅ **ENS names** with verification
-- ✅ **Live swap estimates**
-- ✅ **Claim status tracking**
-- ✅ **Cycle countdown** (demo: 1 min, prod: 24 hrs)
-- ✅ **Error handling** with user-friendly messages
-
-## 📚 Documentation
-
-- **[FRONTEND_README.md](./FRONTEND_README.md)**: Complete frontend guide
-  - Setup instructions
-  - User flow
-  - API documentation
-  - Security model
-
-- **[OASIS_ROFL_GUIDE.md](./OASIS_ROFL_GUIDE.md)**: TEE deployment guide
-  - What is ROFL
-  - Step-by-step deployment
-  - Cost breakdown
-  - Monitoring & maintenance
-
-## 🔧 Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Smart Contracts** | Solidity 0.8.20, OpenZeppelin |
-| **Frontend** | Next.js 15, React 19, TypeScript |
-| **UI Kit** | World ID Mini Apps UI Kit |
-| **Web3** | Ethers.js 6, Viem |
-| **Blockchain** | World Chain (Mainnet) |
-| **Identity** | World ID (Device/Orb verification) |
-| **Naming** | ENS (Ethereum Mainnet) |
-| **Backend** | Node.js, Express |
-| **TEE (Optional)** | Oasis ROFL |
-
-## 🏆 Hackathon Highlights
-
-### Unique Features
-
-1. **Geo-based Rewards**: First platform to use geo-IP for differentiated token economics
-2. **TEE Integration**: Optional deployment to Oasis for verifiable computation
-3. **ENS Verification**: Proper reverse resolution with security checks
-4. **World ID**: Sybil-resistant claims with device verification
-5. **Demo-Ready**: Seeding functions for instant ecosystem setup
-
-### Technical Achievements
-
-- ✅ Pull payment pattern prevents contract bricking
-- ✅ Dynamic reward amounts via cryptographic signatures
-- ✅ Automatic cycle management with fund unlocking
-- ✅ Proportional token swapping
-- ✅ Mobile-first World Mini App
-- ✅ Production + demo contract variants
-
-## 📝 License
-
-MIT License
-
-## 📞 Support
-
-- **World ID Docs**: https://docs.worldcoin.org/mini-apps
+- **Issues**: Report bugs on GitHub
+- **World ID Docs**: https://docs.worldcoin.org
 - **Oasis ROFL**: https://docs.oasis.io/build/rofl
 - **ENS Docs**: https://docs.ens.domains
 
+## License
+
+MIT License - see LICENSE file for details
+
 ---
 
-**Built for ETH Global / World Chain Hackathon 2025** 🌍⚡
+**Built with** ❤️ **on World Chain**

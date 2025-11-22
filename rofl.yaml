@@ -1,0 +1,64 @@
+# Oasis ROFL Configuration for ADS Platform
+# Deploy signing backend to Trusted Execution Environment
+
+name: ads-signing-backend
+version: 1.0.0
+description: ADS Platform claim signing service with geo-IP and device-based rewards
+
+# Docker image from public registry
+# Update this after building and pushing your image
+image: your-dockerhub-username/ads-backend:latest
+
+# Resource allocation
+resources:
+  memory: 512Mi  # 512 MB RAM
+  cpu: 1         # 1 CPU core
+  storage: 1Gi   # 1 GB persistent storage
+
+# Network configuration
+network:
+  ports:
+    - containerPort: 3001
+      protocol: TCP
+      name: http
+
+# Health check configuration
+healthCheck:
+  path: /health
+  port: 3001
+  scheme: HTTP
+  intervalSeconds: 30
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+  initialDelaySeconds: 10
+
+# Environment variables
+# Secrets are managed separately via Oasis CLI
+env:
+  - name: NODE_ENV
+    value: production
+  - name: PORT
+    value: "3001"
+  - name: SIGNER_PRIVATE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: SIGNER_PRIVATE_KEY
+        key: value
+
+# Restart policy
+restartPolicy:
+  maxRetries: 3
+  backoffSeconds: 10
+
+# Logging configuration
+logging:
+  level: info
+  format: json
+
+# Runtime configuration
+runtime:
+  attestation:
+    enabled: true
+  enclave:
+    type: sgx  # Intel SGX TEE

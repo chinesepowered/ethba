@@ -2,15 +2,19 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 
 /**
- * ENS Reverse Resolution with Verification
+ * Cross-Chain Name Resolution with Arbitrum One
+ *
+ * Demonstrates cross-chain trust by resolving names from Arbitrum
+ * while the main app runs on World Chain. This shows how identity
+ * and reputation from other chains can carry over.
  *
  * Per ENS best practices:
  * 1. Perform reverse lookup (address -> name)
  * 2. Verify with forward lookup (name -> address)
  * 3. Only display if addresses match (prevents spoofing)
  *
- * Uses Ethereum Mainnet (ENS primary network)
- * Supports L2 primary names via mainnet resolution
+ * Uses Arbitrum One for name resolution
+ * World ID provides sybil resistance, Arbitrum names provide identity
  */
 export function useENS(address: string | undefined) {
   const [ensName, setEnsName] = useState<string | null>(null);
@@ -27,12 +31,14 @@ export function useENS(address: string | undefined) {
     async function lookupAndVerify() {
       setLoading(true);
       try {
-        // Use Ethereum Mainnet for ENS (supports all L2 lookups)
+        // Use Arbitrum One for cross-chain name resolution
+        // Arbitrum One RPC (public endpoint)
         const provider = new ethers.JsonRpcProvider(
-          'https://eth.llamarpc.com' // Free public mainnet RPC
+          'https://arb1.arbitrum.io/rpc'
         );
 
         // Step 1: Reverse lookup (address -> name)
+        // This checks if the address has set a reverse record on Arbitrum
         const reverseName = await provider.lookupAddress(address!);
 
         if (!reverseName || cancelled) {
@@ -43,6 +49,7 @@ export function useENS(address: string | undefined) {
 
         // Step 2: Forward lookup verification (name -> address)
         // CRITICAL: Prevents spoofing attacks
+        // Verify the name actually resolves back to this address
         const resolvedAddress = await provider.resolveName(reverseName);
 
         if (!cancelled) {
@@ -53,15 +60,15 @@ export function useENS(address: string | undefined) {
           ) {
             setEnsName(reverseName);
           } else {
-            // Verification failed - don't display ENS name
+            // Verification failed - don't display name
             console.warn(
-              `ENS verification failed for ${address}: reverse=${reverseName}, forward=${resolvedAddress}`
+              `Arbitrum name verification failed for ${address}: reverse=${reverseName}, forward=${resolvedAddress}`
             );
             setEnsName(null);
           }
         }
       } catch (error) {
-        console.error('ENS lookup failed:', error);
+        console.error('Arbitrum name lookup failed:', error);
         if (!cancelled) {
           setEnsName(null);
         }

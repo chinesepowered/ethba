@@ -1,180 +1,82 @@
 # ADS Platform
 
-**Decentralized Advertising with Verified Audiences**
+**Decentralized Advertising with Proportional Rewards**
 
-A blockchain-based advertising platform that rewards users for viewing ads while providing advertisers with sybil-resistant, verified audiences through World ID integration.
+A blockchain-based advertising platform where users earn WLD by clicking ads, and advertisers reach verified human audiences through World ID integration.
 
 ## What is ADS?
 
-ADS (Advertising Distribution System) reimagines digital advertising by aligning incentives between users and advertisers:
+ADS (Advertising Distribution System) aligns incentives between users and advertisers through transparent on-chain mechanics:
 
-- **Users earn tokens** by viewing and engaging with advertisements
+- **Users earn WLD** by clicking advertisements during 24-hour cycles
 - **Advertisers reach verified humans** protected by World ID sybil resistance
-- **Fair value distribution** through transparent on-chain mechanics
-- **Privacy-preserving rewards** with dynamic compensation based on user context
-
-## Key Features
-
-### For Users
-
-- **Earn While You Browse**: Get paid in ADS tokens for viewing advertisements
-- **Dynamic Rewards**: Compensation varies based on your location and device
-- **Instant Swaps**: Exchange earned ADS tokens for WLD from the reward pool
-- **Privacy First**: No tracking beyond what's necessary for fair compensation
-- **Sybil Protection**: World ID ensures one person = one account
-
-### For Advertisers
-
-- **Verified Audiences**: Reach real humans, not bots or duplicate accounts
-- **Auction-Based Pricing**: Bid for ad slots in competitive cycles
-- **Transparent Metrics**: On-chain visibility into ad performance
-- **ENS Integration**: Build brand recognition with your ENS name
-- **Flexible Cycles**: Choose between rapid (1-minute) or daily (24-hour) campaigns
+- **Fair proportional distribution** - each clicker gets equal share of the bid
+- **Targeted audiences** with 10 slot types (Global, US-only, iOS-only, etc.)
 
 ## How It Works
 
-### 1. User Registration
-- Open the Mini App in World App
-- Complete World ID verification (device or orb level)
-- Start earning immediately
+### For Users (Earning WLD)
 
-### 2. View & Earn
-- Browse current cycle's advertisements
-- Click ads that interest you
-- Claim ADS token rewards
-- Reward amounts vary by location and device
+1. **Register** with World ID verification in the World Mini App
+2. **Browse ads** - see which ones you're eligible for based on location/device
+3. **Click ads** that interest you during the cycle
+4. **Claim rewards** after the cycle ends - get your proportional share
 
-### 3. Swap Tokens
-- Exchange ADS tokens for WLD
-- Proportional swaps from the reward pool
-- Instant settlement on-chain
+**Example**: An advertiser bids 100 WLD for a US-only slot. 50 US users click it. After the 5% platform fee, each user can claim 1.9 WLD (95 WLD ÷ 50 users).
 
-### 4. Advertiser Bidding
-- Place WLD bids for ad slots
-- Compete in auction-based cycles
-- Reach verified human audiences
+### For Advertisers (Reaching Real Humans)
 
-## Dynamic Rewards
+1. **Choose a slot type** to target your ideal audience
+2. **Bid WLD** for the slot - higher bids attract more attention
+3. **Your ad runs** for 24 hours (or 1 minute in demo mode)
+4. **Users click** - only eligible users based on your targeting
+5. **Results on-chain** - transparent metrics you can verify
 
-The platform uses context-aware reward distribution:
+### Targeting Options (10 Slot Types)
 
-| User Context | Base Reward | iOS Bonus | Total |
-|-------------|-------------|-----------|-------|
-| Argentina + Android | 1 ADS | - | **1 ADS** |
-| Other Countries + Android | 2 ADS | - | **2 ADS** |
-| Argentina + iOS | 1 ADS | +1 ADS | **2 ADS** |
-| Other Countries + iOS | 2 ADS | +1 ADS | **3 ADS** |
+- **Global**: Anyone worldwide
+- **Geographic**: US-only, Argentina-only, EU-only, Asia-only
+- **Device**: Mobile-only, Desktop-only, iOS-only, Android-only
+- **Custom**: Advanced targeting
 
-Rewards are cryptographically signed by the backend to prevent manipulation.
+## Key Features
 
-## Security & Trust
+### Proportional Tranche Distribution
 
-### Cryptographic Signature Verification
-Users cannot forge or modify reward amounts. Every claim requires a valid signature from the authorized backend signer.
+Unlike traditional pay-per-click, ADS uses a proportional reward model:
 
-### Cross-Chain Name Resolution
-Advertiser names are resolved from Arbitrum One, demonstrating cross-chain identity:
-1. Address → Name lookup on Arbitrum
-2. Name → Address verification
-3. Only displayed if addresses match
+- **Advertiser bids**: 100 WLD for a slot
+- **Platform fee**: 5% (5 WLD)
+- **User pool**: 95 WLD distributed equally among all clickers
+- **Your share**: 95 WLD ÷ total_clicks
 
-**Why Arbitrum names?**
-- Demonstrates cross-chain trust and identity portability
-- World ID provides sybil resistance, Arbitrum names provide established identity
-- Shows how reputation from one chain carries over to another
-- No need for separate names on every chain
+This creates:
+- **Predictable costs** for advertisers (fixed bid amount)
+- **Fair distribution** for users (equal shares)
+- **Sybil resistance** through World ID (one person = one share)
 
-This prevents spoofing attacks and showcases interoperability.
+### Targeting Enforcement
+
+**Backend Authorization**: Before recording a click on-chain, the backend verifies eligibility:
+- US-only ad? Check geo-IP for US location
+- iOS-only ad? Verify user-agent shows iOS device
+- Not eligible? Click rejected, no gas wasted
+
+**On-Chain Recording**: Verified clicks recorded on World Chain with backend signature
 
 ### World ID Integration
-- **Orb Verification** (Production): One claim per unique human
-- **Device Verification** (Demo): One claim per device
-- Prevents sybil attacks and multi-accounting
 
-### Trusted Execution Environment
-Optionally deploy the backend to Oasis ROFL for:
-- Verifiable computation
-- Encrypted key storage
-- Decentralized execution
-- Auditable code
-
-## Technology Stack
-
-Built on cutting-edge Web3 infrastructure:
-
-- **Blockchain**: World Chain (EVM-compatible)
-- **Identity**: World ID verification
-- **Smart Contracts**: Solidity with OpenZeppelin security
-- **Frontend**: Next.js + React (World Mini App)
-- **Naming**: ENS (Ethereum Mainnet)
-- **Optional TEE**: Oasis ROFL
-
-## Quick Start
-
-```bash
-# Install dependencies
-pnpm install
-
-# Configure environment
-cp .env.example .env.local
-# Edit .env.local with your values
-
-# Run development server
-pnpm dev
-
-# For World App testing (use ngrok)
-ngrok http 3000
-```
-
-See [DEPLOY.md](./DEPLOY.md) for complete deployment instructions.
-
-## Architecture Versions
-
-### v1: Token-Based (Current)
-Users earn ADS tokens and swap for WLD from reward pool.
-
-**Contracts**: `ADS.sol` (production), `ADSDemo.sol` (demo)
-- **Cycles**: 24 hours (production) or 1 minute (demo)
-- **Verification**: Orb-level (production) or device-level (demo)
-- **Rewards**: Dynamic ADS token minting based on geo-IP and device
-- **Distribution**: Proportional swap from reward pool
-
-### v2: Proportional Tranche (Alternative)
-Users record clicks and claim proportional share of advertiser bids.
-
-**Contract**: `ADSv2.sol`
-- **Cycles**: 24 hours
-- **Verification**: Orb-level World ID
-- **Rewards**: Direct WLD distribution (no token)
-- **Distribution**: Equal split among clickers within targeting cohort
-- **Targeting**: Built-in slot types (US-only, AR-only, iOS-only, etc.)
-- **Simplicity**: 50% less code, more predictable economics
-
-**See**: [V1_VS_V2_COMPARISON.md](./V1_VS_V2_COMPARISON.md) and [ARCHITECTURE_V2.md](./ARCHITECTURE_V2.md) for detailed comparison.
-
-## Architecture Highlights
-
-### Pull Payment Pattern
-Platform fees are accumulated and withdrawn separately, preventing contract bricking if fee transfers fail.
-
-### Automatic Cycle Management
-Cycles finalize automatically, unlocking funds and enabling swaps without manual intervention.
-
-### Proportional Swapping
-Token swaps use the formula: `(userADS / totalADS) × rewardPool`
-
-This ensures fair value distribution as the token supply changes.
-
-### Ad Slot Auctions
-Advertisers compete for slots by placing WLD bids. Higher bids displace lower ones, with automatic refunds.
+- **Orb Verification** (Production): One account per unique human
+- **Device Verification** (Demo): One account per device for testing
+- Prevents multi-accounting and bot farms
 
 ## Privacy & Transparency
 
 **What We Track:**
-- Geo-IP country code (for reward calculation)
-- Device type (for reward bonuses)
+- Geo-IP country code (for targeting verification)
+- Device type (for targeting verification)
 - World ID verification status
-- On-chain claim history
+- On-chain click & claim history
 
 **What We Don't Track:**
 - Personal information
@@ -183,50 +85,75 @@ Advertisers compete for slots by placing WLD bids. Higher bids displace lower on
 - User behavior across sites
 
 **Transparency:**
-- All contracts are open source
-- Ad bids and claims are on-chain
+- All contracts are open source and verified
+- Ad bids and clicks are on-chain
 - Reward calculations are verifiable
-- Optional TEE deployment for trustless execution
+- Backend signatures prevent manipulation
 
-## Future Roadmap
+## Technology Stack
 
-- [ ] Advertiser dashboard with analytics
-- [ ] Click tracking with proof-of-view
-- [ ] Cycle start notifications
-- [ ] User claim history viewer
-- [ ] Top earners leaderboard
-- [ ] Referral system
-- [ ] Advanced ad targeting options
+Built on cutting-edge Web3 infrastructure:
 
-## Documentation
+- **Blockchain**: World Chain (EVM-compatible L2)
+- **Identity**: World ID verification (Orb/Device)
+- **Smart Contracts**: Solidity with Permit2 integration
+- **Frontend**: Next.js + React (World Mini App)
+- **Token**: WLD (Worldcoin native token)
+- **Transactions**: Permit2 for gasless approvals
 
-### Getting Started
-- **[README.md](./README.md)**: This file - project overview and marketing pitch
-- **[DEPLOY.md](./DEPLOY.md)**: Step-by-step deployment guide
-- **[OASIS_QUICKSTART.md](./OASIS_QUICKSTART.md)**: Deploy to Oasis ROFL TEE in 10 minutes
-- **[DEPLOYMENT_READY.md](./DEPLOYMENT_READY.md)**: Final checklist before deploying
+## Why Proportional Distribution?
 
-### Technical Documentation
-- **[PROJECT.md](./PROJECT.md)**: Complete v1 technical documentation (token-based)
-- **[ARCHITECTURE_V2.md](./ARCHITECTURE_V2.md)**: v2 architecture (proportional tranche)
-- **[V1_VS_V2_COMPARISON.md](./V1_VS_V2_COMPARISON.md)**: Detailed comparison of both versions
+Compared to token-based systems:
 
-### Code & History
-- **Contracts**: See `contracts/` directory for Solidity source
-- **Backend**: See `backend/` directory for TEE signing service
-- **[CHANGELOG.md](./CHANGELOG.md)**: Complete change history
+- **50% less code** - simpler architecture
+- **Direct WLD rewards** - no intermediary token
+- **Predictable economics** - advertisers know exact cost
+- **Fair for all** - equal shares prevent gaming
+- **No token price risk** - rewards in WLD directly
 
-## Support & Community
+## Example Scenarios
 
-- **Issues**: Report bugs on GitHub
-- **World ID Docs**: https://docs.worldcoin.org
-- **Oasis ROFL**: https://docs.oasis.io/build/rofl
-- **ENS Docs**: https://docs.ens.domains
+### Scenario 1: Popular Global Ad
+- **Bid**: 1000 WLD
+- **Clicks**: 500 users
+- **Each user gets**: (1000 × 0.95) ÷ 500 = **1.9 WLD**
 
-## License
+### Scenario 2: Niche iOS-Only Ad
+- **Bid**: 100 WLD
+- **Clicks**: 20 iOS users
+- **Each user gets**: (100 × 0.95) ÷ 20 = **4.75 WLD**
 
-MIT License - see LICENSE file for details
+### Scenario 3: High-Value US Campaign
+- **Bid**: 5000 WLD
+- **Clicks**: 250 US users
+- **Each user gets**: (5000 × 0.95) ÷ 250 = **19 WLD**
 
----
+## Security Architecture
 
-**Built with** ❤️ **on World Chain**
+### Permit2 Integration
+- Single-transaction bidding (no separate approval)
+- MiniKit handles signature generation
+- Compatible with World Mini Apps requirements
+
+### Backend Signature Verification
+- Users cannot click ineligible ads
+- Backend signs authorization after verification
+- Contract validates signature on-chain
+- Prevents cheating and gas waste
+
+### Pull Payment Pattern
+- Platform fees accumulated safely
+- No risk of contract bricking
+- Robust cycle management
+
+## Getting Started
+
+This is a World Mini App - it runs inside the World App on your phone.
+
+**Documentation:**
+- `project.md` - Complete technical documentation
+- `deploy.md` - Deployment guide for World Chain
+
+**Support:**
+- World ID Docs: https://docs.worldcoin.org
+- World Mini Apps: https://docs.world.org/mini-apps

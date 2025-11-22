@@ -33,7 +33,8 @@ export function RegistrationView() {
 
   // Check for cached World ID verification
   useEffect(() => {
-    const cacheKey = `worldid_verification_ads-register`;
+    const action = process.env.NEXT_PUBLIC_WLD_ACTION || 'verify-human';
+    const cacheKey = `worldid_verification_${action}`;
     const cachedVerification = localStorage.getItem(cacheKey);
 
     if (cachedVerification) {
@@ -62,12 +63,18 @@ export function RegistrationView() {
     MiniKit.subscribe(
       ResponseEvent.MiniAppVerifyAction,
       async (response: MiniAppVerifyActionPayload) => {
+        console.log('[RegistrationView] World ID response:', response);
+
         if (response.status === "error") {
-          setMessage('World ID verification failed. Please try again.');
+          console.error('[RegistrationView] World ID verification error:', response);
+          setMessage(`World ID verification failed: ${response.error_code || 'Unknown error'}`);
+          setIsCreating(false);
           return;
         }
 
         const successResponse = response as ISuccessResult;
+        console.log('[RegistrationView] World ID verification success:', successResponse);
+
         const verificationData = {
           root: successResponse.merkle_root,
           nullifierHash: successResponse.nullifier_hash,
@@ -79,7 +86,8 @@ export function RegistrationView() {
         setMessage('World ID verification successful! Registering...');
 
         // Cache the verification
-        const cacheKey = `worldid_verification_ads-register`;
+        const action = process.env.NEXT_PUBLIC_WLD_ACTION || 'verify-human';
+        const cacheKey = `worldid_verification_${action}`;
         localStorage.setItem(cacheKey, JSON.stringify(verificationData));
 
         // Automatically proceed with registration
@@ -137,6 +145,7 @@ export function RegistrationView() {
   // Proceed with registration using verification data
   const proceedWithRegistration = async (verificationData: { root: string; nullifierHash: string; proof: string[] | string; }) => {
     try {
+      console.log('[RegistrationView] Starting registration with proof:', verificationData);
       setIsCreating(true);
       setMessage('Registering with World ID...');
 
@@ -183,6 +192,13 @@ export function RegistrationView() {
         return;
       }
 
+      console.log('[RegistrationView] Calling register with:', {
+        walletAddress,
+        root: verificationData.root,
+        nullifierHash: verificationData.nullifierHash,
+        proof: formattedProof,
+      });
+
       const { finalPayload } = await MiniKit.commandsAsync.sendTransaction({
         transaction: [{
           address: CONTRACTS.ADS_DEMO,
@@ -196,6 +212,8 @@ export function RegistrationView() {
           ],
         }],
       });
+
+      console.log('[RegistrationView] Transaction result:', finalPayload);
 
       if (finalPayload?.status === 'success') {
         setMessage('Registration successful!');
@@ -265,8 +283,10 @@ export function RegistrationView() {
 
     setMessage('Please complete World ID verification...');
 
+    const action = process.env.NEXT_PUBLIC_WLD_ACTION || 'verify-human';
+
     const verifyPayload = {
-      action: "ads-register",
+      action,
       signal: walletAddress, // Use wallet address as signal
       verification_level: VerificationLevel.Device, // Use Device for testing
     };

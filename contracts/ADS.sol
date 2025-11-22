@@ -30,8 +30,7 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     uint256 internal immutable groupId = 1; // Orb verified users
     
     IERC20 public immutable WLD;
-    
-    uint256 public constant CLICK_REWARD = 1 * 10**18; // 1 ADS per click
+
     uint256 public constant SIGNATURE_VALIDITY = 10 minutes;
     uint256 public constant MIN_BID = 0.01 * 10**18; // 0.01 WLD minimum
     uint256 public constant MIN_BID_INCREMENT_PERCENT = 5; // 5% increase required
@@ -138,7 +137,7 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     error SlotDoesNotExist();
     error AdRemoved();
     error NotAuthorizedSigner();
-    error AdvertiserBanned();
+    error AdvertiserIsBanned();
     error InvalidSlotIndex();
     error InvalidDay();
     error BidTooLow();
@@ -329,6 +328,7 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
      * @dev Automatically handles day transitions before processing claim
      * @param day The day of the ad (block.timestamp / 1 days)
      * @param slotIndex The slot index (0 to numDailySlots-1)
+     * @param rewardAmount Amount of ADS tokens to reward (determined by backend)
      * @param nonce Unique nonce to prevent replay
      * @param timestamp When the click happened
      * @param signature Backend signature proving the click
@@ -336,62 +336,64 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     function claimReward(
         uint256 day,
         uint256 slotIndex,
+        uint256 rewardAmount,
         uint256 nonce,
         uint256 timestamp,
         bytes calldata signature
     ) external nonReentrant {
         // AUTOMATIC: Handle day transition first (unlocks past funds + finalizes today's slots)
         _handleDayTransition();
-        
+
         // 1. Check user is registered
         if (!isRegistered[msg.sender]) revert NotRegistered();
-        
+
         // 2. Verify slot exists and is valid
         if (slotIndex >= numDailySlots) revert InvalidSlotIndex();
-        
+
         AdSlot storage ad = dailyAds[day][slotIndex];
         if (!ad.exists) revert SlotDoesNotExist();
         if (ad.removed) revert AdRemoved();
-        
+
         // 3. Check not already claimed
         if (hasClaimed[msg.sender][day][slotIndex]) revert AlreadyClaimed();
-        
+
         // 4. Verify nonce not used
         if (usedNonces[msg.sender][nonce]) revert NonceAlreadyUsed();
-        
+
         // 5. Verify timestamp freshness
-        if (timestamp > block.timestamp || 
+        if (timestamp > block.timestamp ||
             timestamp + SIGNATURE_VALIDITY < block.timestamp) {
             revert SignatureExpired();
         }
-        
+
         // 6. Verify backend signature
-        // Each signature is unique per (user, day, slotIndex, nonce, timestamp)
-        // This means user needs a new signature for each ad slot each day
+        // Each signature is unique per (user, day, slotIndex, rewardAmount, nonce, timestamp)
+        // Backend can differentiate rewards based on geo-IP, device type, etc.
         bytes32 messageHash = keccak256(abi.encodePacked(
             msg.sender,
             day,
             slotIndex,
+            rewardAmount,
             nonce,
             timestamp
         ));
-        
+
         bytes32 ethSignedHash = keccak256(abi.encodePacked(
             "\x19Ethereum Signed Message:\n32",
             messageHash
         ));
-        
+
         address signer = _recoverSigner(ethSignedHash, signature);
         if (!authorizedSigners[signer]) revert NotAuthorizedSigner();
-        
+
         // 7. Mark as claimed
         hasClaimed[msg.sender][day][slotIndex] = true;
         usedNonces[msg.sender][nonce] = true;
-        
-        // 8. Mint reward (1 ADS per click)
-        _mint(msg.sender, CLICK_REWARD);
-        
-        emit AdClicked(msg.sender, day, slotIndex, CLICK_REWARD);
+
+        // 8. Mint reward (dynamic amount from backend)
+        _mint(msg.sender, rewardAmount);
+
+        emit AdClicked(msg.sender, day, slotIndex, rewardAmount);
     }
     
     // ============================================
@@ -447,7 +449,7 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
         uint256 currentDay = block.timestamp / 1 days;
         
         // Validations
-        if (bannedAdvertisers[msg.sender]) revert AdvertiserBanned();
+        if (bannedAdvertisers[msg.sender]) revert AdvertiserIsBanned();
         if (day <= currentDay) revert CannotBidOnPastOrToday();
         if (slotIndex >= numDailySlots) revert InvalidSlotIndex();
         if (bytes(name).length == 0 || bytes(name).length > 100) revert("Name must be 1-100 chars");

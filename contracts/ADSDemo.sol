@@ -29,7 +29,6 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
 
     IERC20 public immutable WLD;
 
-    uint256 public constant CLICK_REWARD = 1 * 10**18; // 1 ADS per click
     uint256 public constant SIGNATURE_VALIDITY = 10 minutes;
     uint256 public constant MIN_BID = 0.01 * 10**18; // 0.01 WLD minimum
     uint256 public constant MIN_BID_INCREMENT_PERCENT = 5; // 5% increase required
@@ -135,9 +134,9 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
     error NonceAlreadyUsed();
     error AlreadyClaimed();
     error SlotDoesNotExist();
-    error AdRemoved();
+    error AdWasRemoved();
     error NotAuthorizedSigner();
-    error AdvertiserBanned();
+    error AdvertiserIsBanned();
     error InvalidSlotIndex();
     error InvalidCycle();
     error BidTooLow();
@@ -331,6 +330,7 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
      * @dev Automatically handles cycle transitions before processing claim
      * @param cycle The cycle of the ad (block.timestamp / CYCLE_DURATION)
      * @param slotIndex The slot index (0 to numCycleSlots-1)
+     * @param rewardAmount Amount of ADS tokens to reward (determined by backend)
      * @param nonce Unique nonce to prevent replay
      * @param timestamp When the click happened
      * @param signature Backend signature proving the click
@@ -338,6 +338,7 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
     function claimReward(
         uint256 cycle,
         uint256 slotIndex,
+        uint256 rewardAmount,
         uint256 nonce,
         uint256 timestamp,
         bytes calldata signature
@@ -353,7 +354,7 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
 
         AdSlot storage ad = cycleAds[cycle][slotIndex];
         if (!ad.exists) revert SlotDoesNotExist();
-        if (ad.removed) revert AdRemoved();
+        if (ad.removed) revert AdWasRemoved();
 
         // 3. Check not already claimed
         if (hasClaimed[msg.sender][cycle][slotIndex]) revert AlreadyClaimed();
@@ -368,12 +369,13 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
         }
 
         // 6. Verify backend signature
-        // Each signature is unique per (user, cycle, slotIndex, nonce, timestamp)
-        // This means user needs a new signature for each ad slot each cycle
+        // Each signature is unique per (user, cycle, slotIndex, rewardAmount, nonce, timestamp)
+        // Backend can differentiate rewards based on geo-IP, device type, etc.
         bytes32 messageHash = keccak256(abi.encodePacked(
             msg.sender,
             cycle,
             slotIndex,
+            rewardAmount,
             nonce,
             timestamp
         ));
@@ -390,10 +392,10 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
         hasClaimed[msg.sender][cycle][slotIndex] = true;
         usedNonces[msg.sender][nonce] = true;
 
-        // 8. Mint reward (1 ADS per click)
-        _mint(msg.sender, CLICK_REWARD);
+        // 8. Mint reward (dynamic amount from backend)
+        _mint(msg.sender, rewardAmount);
 
-        emit AdClicked(msg.sender, cycle, slotIndex, CLICK_REWARD);
+        emit AdClicked(msg.sender, cycle, slotIndex, rewardAmount);
     }
 
     // ============================================
@@ -449,7 +451,7 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
         uint256 currentCycle = block.timestamp / CYCLE_DURATION;
 
         // Validations
-        if (bannedAdvertisers[msg.sender]) revert AdvertiserBanned();
+        if (bannedAdvertisers[msg.sender]) revert AdvertiserIsBanned();
         if (cycle <= currentCycle) revert CannotBidOnPastOrCurrent();
         if (slotIndex >= numCycleSlots) revert InvalidSlotIndex();
         if (bytes(name).length == 0 || bytes(name).length > 100) revert("Name must be 1-100 chars");
@@ -668,6 +670,115 @@ contract ADSDemo is ERC20, Ownable, ReentrancyGuard {
      */
     function triggerCycleTransition() external {
         _handleCycleTransition();
+    }
+
+    // ============================================
+    // DEMO SEEDING FUNCTIONS
+    // ============================================
+
+    /**
+     * @notice DEMO: Register a user without World ID verification
+     * @param user Address to register
+     */
+    function seedRegistration(address user) external onlyOwner {
+        if (isRegistered[user]) revert AlreadyRegistered();
+        isRegistered[user] = true;
+        emit UserRegistered(user, 0); // nullifierHash = 0 for seeded users
+    }
+
+    /**
+     * @notice DEMO: Create a historical ad slot (bypasses bidding)
+     * @param cycle The cycle to seed
+     * @param slotIndex The slot index
+     * @param advertiser Advertiser address
+     * @param name Ad name
+     * @param description Ad description
+     * @param actionUrl Click-through URL
+     * @param bidAmount Bid amount (for display/unlocking purposes)
+     */
+    function seedAdSlot(
+        uint256 cycle,
+        uint256 slotIndex,
+        address advertiser,
+        string calldata name,
+        string calldata description,
+        string calldata actionUrl,
+        uint256 bidAmount
+    ) external onlyOwner {
+        if (slotIndex >= numCycleSlots) revert InvalidSlotIndex();
+        if (bytes(name).length == 0 || bytes(name).length > 100) revert("Name must be 1-100 chars");
+        if (bytes(description).length == 0 || bytes(description).length > 500) revert("Description must be 1-500 chars");
+        if (bytes(actionUrl).length == 0 || bytes(actionUrl).length > 200) revert("URL must be 1-200 chars");
+
+        AdSlot storage ad = cycleAds[cycle][slotIndex];
+        ad.advertiser = advertiser;
+        ad.name = name;
+        ad.description = description;
+        ad.actionUrl = actionUrl;
+        ad.bidAmount = bidAmount;
+        ad.exists = true;
+        ad.removed = false;
+
+        emit AdSlotFinalized(cycle, slotIndex, advertiser, bidAmount);
+    }
+
+    /**
+     * @notice DEMO: Mint ADS tokens to a user (simulate past claims)
+     * @param user Address to mint to
+     * @param amount Amount of ADS tokens
+     */
+    function seedADSBalance(address user, uint256 amount) external onlyOwner {
+        _mint(user, amount);
+    }
+
+    /**
+     * @notice DEMO: Add WLD directly to reward pool
+     * @param amount Amount of WLD to add
+     * @dev Owner must have approved this contract to spend WLD first
+     */
+    function seedRewardPool(uint256 amount) external onlyOwner {
+        bool success = WLD.transferFrom(msg.sender, address(this), amount);
+        if (!success) revert TransferFailed();
+
+        rewardPool += amount;
+    }
+
+    /**
+     * @notice DEMO: Manually advance to next cycle (skip waiting)
+     * @dev Forces cycle transition and increments lastFinalizedCycle
+     */
+    function forceAdvanceCycle() external onlyOwner {
+        // Advance to next cycle
+        uint256 targetCycle = lastFinalizedCycle + 1;
+
+        // Unlock funds from previous cycle if needed
+        if (targetCycle > 0 && !cycleFundsUnlocked[targetCycle - 1]) {
+            _unlockCycleFunds(targetCycle - 1);
+        }
+
+        // Finalize all slots for target cycle
+        for (uint256 slotIndex = 0; slotIndex < numCycleSlots; slotIndex++) {
+            _finalizeAdSlot(targetCycle, slotIndex);
+        }
+
+        lastFinalizedCycle = targetCycle;
+        emit CycleTransitioned(targetCycle);
+    }
+
+    /**
+     * @notice DEMO: Mark a cycle's funds as already unlocked
+     * @param cycle The cycle to mark
+     */
+    function seedCycleUnlocked(uint256 cycle) external onlyOwner {
+        cycleFundsUnlocked[cycle] = true;
+    }
+
+    /**
+     * @notice DEMO: Set last finalized cycle (for controlling time)
+     * @param cycle The cycle number to set
+     */
+    function setLastFinalizedCycle(uint256 cycle) external onlyOwner {
+        lastFinalizedCycle = cycle;
     }
 
     // ============================================

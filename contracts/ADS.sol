@@ -12,10 +12,11 @@ import "@worldcoin/world-id-contracts/src/libraries/ByteHasher.sol";
  * @title ADS - Ads Token Platform
  * @dev Decentralized advertising platform where:
  *      - Advertisers bid WLD for daily ad slots
- *      - Users earn ADS tokens by clicking through ads
+ *      - Users earn ADS tokens by clicking through ads (1 ADS per click)
  *      - Users swap ADS for WLD from reward pool
  *      - World ID ensures one human per wallet
  *      - Backend signature verifies actual ad clicks
+ *      - Automatic daily finalization and fund unlocking
  */
 contract ADS is ERC20, Ownable, ReentrancyGuard {
     using ByteHasher for bytes;
@@ -30,7 +31,7 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     
     IERC20 public immutable WLD;
     
-    uint256 public constant CLICK_REWARD = 10 * 10**18; // 10 ADS per click
+    uint256 public constant CLICK_REWARD = 1 * 10**18; // 1 ADS per click
     uint256 public constant SIGNATURE_VALIDITY = 10 minutes;
     uint256 public constant MIN_BID = 0.01 * 10**18; // 0.01 WLD minimum
     uint256 public constant MIN_BID_INCREMENT_PERCENT = 5; // 5% increase required
@@ -41,14 +42,16 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     // ============================================
     
     // Fee configuration
-    uint256 public platformFeePercent = 5; // 5% platform fee (adjustable)
-    uint256 public constant MAX_FEE_PERCENT = 20; // Max 20% fee
+    uint256 public platformFeePercent = 5; // 5% platform fee (no maximum, fully adjustable)
     
     // Reward pool (WLD available for swaps)
     uint256 public rewardPool;
     
     // Locked funds (bids for active/future ads that can't be swapped yet)
     uint256 public lockedFunds;
+    
+    // Track last finalized day to enable automatic daily transitions
+    uint256 public lastFinalizedDay;
     
     // Admin configuration
     uint256 public numDailySlots = 2; // Number of ad slots per day
@@ -94,6 +97,9 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     // Track user registration
     mapping(address => bool) public isRegistered;
     
+    // Track which days have had funds unlocked: day => unlocked
+    mapping(uint256 => bool) public dayFundsUnlocked;
+    
     // ============================================
     // EVENTS
     // ============================================
@@ -111,7 +117,8 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     event NumSlotsUpdated(uint256 newNumSlots);
     event PlatformFeeUpdated(uint256 newFeePercent);
     event TokensSwapped(address indexed user, uint256 adsAmount, uint256 wldAmount);
-    event FundsUnlocked(uint256 indexed day, uint256 indexed slotIndex, uint256 amount);
+    event DayTransitioned(uint256 indexed newDay);
+    event FundsUnlocked(uint256 indexed day, uint256 amount);
     
     // ============================================
     // ERRORS
@@ -134,7 +141,6 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     error TransferFailed();
     error CannotBidOnPastOrToday();
     error InvalidNumSlots();
-    error InvalidFeePercent();
     error InsufficientRewardPool();
     error NoADSToSwap();
     
@@ -156,6 +162,9 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
         
         authorizedSigners[_initialSigner] = true;
         emit SignerAdded(_initialSigner);
+        
+        // Initialize to yesterday so first claim triggers today's finalization
+        lastFinalizedDay = (block.timestamp / 1 days) - 1;
     }
     
     // ============================================
@@ -196,11 +205,125 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     }
     
     // ============================================
+    // AUTOMATIC DAILY MANAGEMENT
+    // ============================================
+    
+    /**
+     * @notice Automatically handle day transition when needed
+     * @dev Called internally before claims to ensure daily management is up to date
+     * This bundles: unlocking previous day funds + finalizing current day slots
+     */
+    function _handleDayTransition() internal {
+        uint256 currentDay = block.timestamp / 1 days;
+        
+        // If we're already up to date, return
+        if (lastFinalizedDay >= currentDay) {
+            return;
+        }
+        
+        // Process all days from lastFinalizedDay+1 up to currentDay
+        for (uint256 day = lastFinalizedDay + 1; day <= currentDay; day++) {
+            // First, unlock funds from the previous day (day - 1) if it exists and hasn't been unlocked
+            if (day > 0 && !dayFundsUnlocked[day - 1]) {
+                _unlockDayFunds(day - 1);
+            }
+            
+            // Then, finalize all slots for the current day
+            for (uint256 slotIndex = 0; slotIndex < numDailySlots; slotIndex++) {
+                _finalizeAdSlot(day, slotIndex);
+            }
+            
+            emit DayTransitioned(day);
+        }
+        
+        lastFinalizedDay = currentDay;
+    }
+    
+    /**
+     * @notice Internal function to unlock all funds for a completed day
+     * @param day The day to unlock funds for
+     */
+    function _unlockDayFunds(uint256 day) internal {
+        if (dayFundsUnlocked[day]) {
+            return; // Already unlocked
+        }
+        
+        uint256 totalUnlocked = 0;
+        
+        for (uint256 slotIndex = 0; slotIndex < numDailySlots; slotIndex++) {
+            AdSlot storage ad = dailyAds[day][slotIndex];
+            
+            // Only unlock if slot exists, not removed, and has a bid amount
+            if (ad.exists && !ad.removed && ad.bidAmount > 0) {
+                // Calculate reward amount (after fee was already taken during finalization)
+                uint256 feeAmount = (ad.bidAmount * platformFeePercent) / 100;
+                uint256 rewardAmount = ad.bidAmount - feeAmount;
+                
+                // Move from locked to reward pool
+                lockedFunds -= rewardAmount;
+                rewardPool += rewardAmount;
+                totalUnlocked += rewardAmount;
+                
+                // Mark as processed
+                ad.bidAmount = 0;
+            }
+        }
+        
+        dayFundsUnlocked[day] = true;
+        
+        if (totalUnlocked > 0) {
+            emit FundsUnlocked(day, totalUnlocked);
+        }
+    }
+    
+    /**
+     * @notice Internal function to finalize a specific ad slot
+     * @param day The day to finalize
+     * @param slotIndex The slot index
+     */
+    function _finalizeAdSlot(uint256 day, uint256 slotIndex) internal {
+        AdSlot storage ad = dailyAds[day][slotIndex];
+        if (ad.exists) {
+            return; // Already finalized
+        }
+        
+        Bid storage winningBid = highestBids[day][slotIndex];
+        
+        if (winningBid.amount > 0) {
+            // Calculate platform fee
+            uint256 feeAmount = (winningBid.amount * platformFeePercent) / 100;
+            uint256 rewardAmount = winningBid.amount - feeAmount;
+            
+            // Create ad slot from winning bid
+            ad.advertiser = winningBid.advertiser;
+            ad.name = winningBid.name;
+            ad.description = winningBid.description;
+            ad.actionUrl = winningBid.actionUrl;
+            ad.bidAmount = winningBid.amount;
+            ad.exists = true;
+            ad.removed = false;
+            
+            // Unlock from bidding locked funds
+            lockedFunds -= winningBid.amount;
+            
+            // Lock the reward amount (will unlock when day ends)
+            lockedFunds += rewardAmount;
+            
+            // Transfer fee to owner immediately
+            bool feeSuccess = WLD.transfer(owner(), feeAmount);
+            if (!feeSuccess) revert TransferFailed();
+            
+            emit AdSlotFinalized(day, slotIndex, winningBid.advertiser, winningBid.amount);
+        }
+    }
+    
+    // ============================================
     // CLAIMING REWARDS
     // ============================================
     
     /**
      * @notice Claim ADS reward for clicking an ad
+     * @dev Automatically handles day transitions before processing claim
      * @param day The day of the ad (block.timestamp / 1 days)
      * @param slotIndex The slot index (0 to numDailySlots-1)
      * @param nonce Unique nonce to prevent replay
@@ -214,6 +337,9 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
         uint256 timestamp,
         bytes calldata signature
     ) external nonReentrant {
+        // AUTOMATIC: Handle day transition first (unlocks past funds + finalizes today's slots)
+        _handleDayTransition();
+        
         // 1. Check user is registered
         if (!isRegistered[msg.sender]) revert NotRegistered();
         
@@ -237,6 +363,8 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
         }
         
         // 6. Verify backend signature
+        // Each signature is unique per (user, day, slotIndex, nonce, timestamp)
+        // This means user needs a new signature for each ad slot each day
         bytes32 messageHash = keccak256(abi.encodePacked(
             msg.sender,
             day,
@@ -257,7 +385,7 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
         hasClaimed[msg.sender][day][slotIndex] = true;
         usedNonces[msg.sender][nonce] = true;
         
-        // 8. Mint reward
+        // 8. Mint reward (1 ADS per click)
         _mint(msg.sender, CLICK_REWARD);
         
         emit AdClicked(msg.sender, day, slotIndex, CLICK_REWARD);
@@ -355,81 +483,6 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
         });
         
         emit BidPlaced(msg.sender, day, slotIndex, amount);
-    }
-    
-    /**
-     * @notice Finalize ad slot for a day (called when day begins)
-     * @param day The day to finalize
-     * @param slotIndex The slot index
-     */
-    function finalizeAdSlot(uint256 day, uint256 slotIndex) external {
-        uint256 currentDay = block.timestamp / 1 days;
-        
-        if (day != currentDay) revert InvalidDay();
-        if (slotIndex >= numDailySlots) revert InvalidSlotIndex();
-        
-        AdSlot storage ad = dailyAds[day][slotIndex];
-        if (ad.exists) return; // Already finalized
-        
-        Bid storage winningBid = highestBids[day][slotIndex];
-        
-        if (winningBid.amount > 0) {
-            // Calculate platform fee
-            uint256 feeAmount = (winningBid.amount * platformFeePercent) / 100;
-            uint256 rewardAmount = winningBid.amount - feeAmount;
-            
-            // Create ad slot from winning bid
-            ad.advertiser = winningBid.advertiser;
-            ad.name = winningBid.name;
-            ad.description = winningBid.description;
-            ad.actionUrl = winningBid.actionUrl;
-            ad.bidAmount = winningBid.amount;
-            ad.exists = true;
-            ad.removed = false;
-            
-            // Unlock from locked funds
-            lockedFunds -= winningBid.amount;
-            
-            // Keep rewardAmount locked (will unlock when ad day ends)
-            lockedFunds += rewardAmount;
-            
-            // Transfer fee to owner immediately
-            bool feeSuccess = WLD.transfer(owner(), feeAmount);
-            if (!feeSuccess) revert TransferFailed();
-            
-            emit AdSlotFinalized(day, slotIndex, winningBid.advertiser, winningBid.amount);
-        }
-    }
-    
-    /**
-     * @notice Unlock funds after ad day ends (makes them swappable)
-     * @dev Can be called by anyone after the day is over
-     * @param day The day that ended
-     * @param slotIndex The slot index
-     */
-    function unlockFunds(uint256 day, uint256 slotIndex) external {
-        uint256 currentDay = block.timestamp / 1 days;
-        
-        // Can only unlock after day has passed
-        if (day >= currentDay) revert InvalidDay();
-        if (slotIndex >= numDailySlots) revert InvalidSlotIndex();
-        
-        AdSlot storage ad = dailyAds[day][slotIndex];
-        if (!ad.exists) revert SlotDoesNotExist();
-        if (!ad.removed && ad.bidAmount > 0) {
-            // Calculate reward amount (after fee)
-            uint256 feeAmount = (ad.bidAmount * platformFeePercent) / 100;
-            uint256 rewardAmount = ad.bidAmount - feeAmount;
-            
-            // Move from locked to reward pool
-            lockedFunds -= rewardAmount;
-            rewardPool += rewardAmount;
-            
-            // Mark as processed by setting bidAmount to 0
-            ad.bidAmount = 0;
-            
-            emit FundsUnlocked(day, slotIndex, rewardAmount);
-        }
     }
     
     /**
@@ -574,10 +627,9 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     
     /**
      * @notice Set platform fee percentage
-     * @param _feePercent New fee percentage (0-20)
+     * @param _feePercent New fee percentage (no maximum limit)
      */
     function setPlatformFee(uint256 _feePercent) external onlyOwner {
-        if (_feePercent > MAX_FEE_PERCENT) revert InvalidFeePercent();
         platformFeePercent = _feePercent;
         emit PlatformFeeUpdated(_feePercent);
     }
@@ -588,6 +640,14 @@ contract ADS is ERC20, Ownable, ReentrancyGuard {
     function emergencyWithdraw(uint256 amount) external onlyOwner {
         bool success = WLD.transfer(owner(), amount);
         if (!success) revert TransferFailed();
+    }
+    
+    /**
+     * @notice Manual day transition trigger (public function, though auto-triggered by claims)
+     * @dev Useful if no claims happen for multiple days
+     */
+    function triggerDayTransition() external {
+        _handleDayTransition();
     }
     
     // ============================================

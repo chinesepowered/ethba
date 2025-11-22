@@ -3,6 +3,16 @@ import { Contract, BrowserProvider, formatUnits, parseUnits } from 'ethers';
 import { CONTRACTS } from '@/config/contracts';
 import { ADS_DEMO_ABI } from '@/config/abi';
 
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on?: (event: string, callback: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, callback: (...args: unknown[]) => void) => void;
+    };
+  }
+}
+
 export interface AdSlot {
   advertiser: string;
   name: string;

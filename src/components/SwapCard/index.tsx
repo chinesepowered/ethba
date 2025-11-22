@@ -64,8 +64,9 @@ export function SwapCard({ userBalance, onSwap, getEstimate }: SwapCardProps) {
       await onSwap(adsAmount);
       setAdsAmount('');
       setWldEstimate('0');
-    } catch (err: any) {
-      setError(err.message || 'Swap failed');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Swap failed';
+      setError(errorMessage);
     } finally {
       setSwapping(false);
     }

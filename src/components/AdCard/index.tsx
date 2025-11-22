@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { formatUnits } from 'ethers';
 import { useENS } from '@/hooks/useENS';
 import { AdSlot } from '@/hooks/useADSContract';
-import { ExternalLink, User, Check } from 'iconoir-react';
+import { OpenNewWindow, User, Check } from 'iconoir-react';
 
 interface AdCardProps {
   ad: AdSlot;
@@ -85,7 +84,7 @@ export function AdCard({
             className="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
           >
             Visit Site
-            <ExternalLink className="w-4 h-4" />
+            <OpenNewWindow className="w-4 h-4" />
           </a>
         )}
 

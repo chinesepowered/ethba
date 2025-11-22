@@ -33,7 +33,7 @@ export function useENS(address: string | undefined) {
         );
 
         // Step 1: Reverse lookup (address -> name)
-        const reverseName = await provider.lookupAddress(address);
+        const reverseName = await provider.lookupAddress(address!);
 
         if (!reverseName || cancelled) {
           setEnsName(null);
@@ -49,7 +49,7 @@ export function useENS(address: string | undefined) {
           // Step 3: Verify addresses match (case-insensitive)
           if (
             resolvedAddress &&
-            resolvedAddress.toLowerCase() === address.toLowerCase()
+            resolvedAddress.toLowerCase() === address!.toLowerCase()
           ) {
             setEnsName(reverseName);
           } else {

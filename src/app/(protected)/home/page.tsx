@@ -22,7 +22,7 @@ export default async function Home() {
         />
       </Page.Header>
       <Page.Main className="flex flex-col items-center justify-start gap-6 mb-16 px-4">
-        <HomeContent userAddress={session?.user.address} />
+        <HomeContent userAddress={session?.user.walletAddress} />
       </Page.Main>
     </>
   );

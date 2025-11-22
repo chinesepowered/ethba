@@ -39,6 +39,7 @@ export function HomeContent({ userAddress }: HomeContentProps) {
       checkRegistration();
       updateSwapValue();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userAddress]);
 
   // Check claimed status for all ads
@@ -56,6 +57,7 @@ export function HomeContent({ userAddress }: HomeContentProps) {
     }
 
     checkAllClaims();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userAddress, currentCycle, currentAds]);
 
   // Check if user is registered
@@ -113,9 +115,10 @@ export function HomeContent({ userAddress }: HomeContentProps) {
       // Refresh data
       await refreshData(userAddress);
       setClaimedStatus({ ...claimedStatus, [slotIndex]: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Claim failed:', error);
-      alert(error.message || 'Failed to claim reward');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to claim reward';
+      alert(errorMessage);
     } finally {
       setClaiming({ ...claiming, [slotIndex]: false });
     }

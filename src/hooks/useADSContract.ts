@@ -89,13 +89,43 @@ export function useADSContract() {
       const slots = [];
       // Fetch all 3 slots for the cycle
       for (let i = 0; i < 3; i++) {
-        const slot = await client.readContract({
-          address: CONTRACTS.ADS_DEMO,
-          abi: ADS_DEMO_ABI,
-          functionName: 'adSlots',
-          args: [cycle, BigInt(i)],
-        }) as AdSlot;
-        slots.push(slot);
+        try {
+          const slot = await client.readContract({
+            address: CONTRACTS.ADS_DEMO,
+            abi: ADS_DEMO_ABI,
+            functionName: 'adSlots',
+            args: [cycle, BigInt(i)],
+          }) as AdSlot;
+
+          // Ensure slot has all required properties with defaults
+          slots.push({
+            advertiser: slot?.advertiser || '0x0000000000000000000000000000000000000000',
+            name: slot?.name || '',
+            description: slot?.description || '',
+            imageUrl: slot?.imageUrl || '',
+            bidAmount: slot?.bidAmount ?? 0n,
+            totalClicks: slot?.totalClicks ?? 0n,
+            claimedAmount: slot?.claimedAmount ?? 0n,
+            finalizedAt: slot?.finalizedAt ?? 0n,
+            exists: slot?.exists ?? false,
+            removed: slot?.removed ?? false,
+          });
+        } catch (slotError) {
+          console.error(`Failed to fetch slot ${i} for cycle ${cycle}:`, slotError);
+          // Push empty slot on error
+          slots.push({
+            advertiser: '0x0000000000000000000000000000000000000000',
+            name: '',
+            description: '',
+            imageUrl: '',
+            bidAmount: 0n,
+            totalClicks: 0n,
+            claimedAmount: 0n,
+            finalizedAt: 0n,
+            exists: false,
+            removed: false,
+          });
+        }
       }
       return slots;
     } catch (error) {

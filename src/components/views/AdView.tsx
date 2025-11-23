@@ -143,10 +143,10 @@ export function AdView({ userAddress }: AdViewProps) {
             .map((ad, index) => ({ ad, index }))
             .filter(({ index }) => ELIGIBLE_SLOTS.includes(index)) // Only show eligible slots
             .map(({ ad, index }) => {
-              const hasAd = ad.advertiser !== '0x0000000000000000000000000000000000000000';
+              const hasAd = ad && ad.advertiser && ad.advertiser !== '0x0000000000000000000000000000000000000000';
               const slot = SLOTS[index];
 
-              if (!hasAd) {
+              if (!hasAd || !ad) {
                 return (
                   <div
                     key={index}
@@ -170,7 +170,7 @@ export function AdView({ userAddress }: AdViewProps) {
                       {slot.name}
                     </span>
                     <span className="text-sm font-bold text-gray-900">
-                      {formatEther(ad.bidAmount)} WLD
+                      {formatEther(ad.bidAmount || 0n)} WLD
                     </span>
                   </div>
 
@@ -178,7 +178,7 @@ export function AdView({ userAddress }: AdViewProps) {
                   {ad.imageUrl && (
                     <Image
                       src={ad.imageUrl}
-                      alt={ad.name}
+                      alt={ad.name || 'Ad'}
                       width={400}
                       height={128}
                       className="w-full h-32 object-cover rounded-lg mb-3"
@@ -186,8 +186,8 @@ export function AdView({ userAddress }: AdViewProps) {
                   )}
 
                   {/* Ad Content */}
-                  <h3 className="font-bold text-lg text-gray-900 mb-2">{ad.name}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{ad.description}</p>
+                  <h3 className="font-bold text-lg text-gray-900 mb-2">{ad.name || 'Unnamed Ad'}</h3>
+                  <p className="text-sm text-gray-600 mb-3">{ad.description || ''}</p>
 
                   {/* Stats */}
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-3">

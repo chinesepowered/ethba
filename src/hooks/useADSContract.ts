@@ -41,7 +41,7 @@ export function useADSContract() {
   const refreshData = async () => {
     setLoading(true);
     try {
-      const [cycle, ads, balances] = await Promise.all([
+      const [cycle, ads, locked, fees] = await Promise.all([
         client.readContract({
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_DEMO_ABI,
@@ -55,13 +55,22 @@ export function useADSContract() {
         client.readContract({
           address: CONTRACTS.ADS_DEMO,
           abi: ADS_DEMO_ABI,
-          functionName: 'getPoolBalances',
+          functionName: 'lockedFunds',
+        }),
+        client.readContract({
+          address: CONTRACTS.ADS_DEMO,
+          abi: ADS_DEMO_ABI,
+          functionName: 'accumulatedFees',
         }),
       ]);
 
       setCurrentCycle(cycle as bigint);
       setCurrentAds(ads as AdSlot[]);
-      setPoolBalances(balances as PoolBalances);
+      setPoolBalances({
+        availablePool: 0n, // Contract doesn't expose this directly
+        locked: locked as bigint,
+        fees: fees as bigint,
+      });
     } catch (error) {
       console.error('Failed to fetch contract data:', error);
     } finally {

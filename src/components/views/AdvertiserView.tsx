@@ -47,11 +47,14 @@ export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
       // Check all cycles from 0 to current
       for (let c = 0n; c <= currentCycle; c++) {
         const ads = await getAdsForCycle(c);
+        console.log(`[AdvertiserView] Cycle ${c} raw response:`, ads);
         console.log(`[AdvertiserView] Cycle ${c} ads:`, ads.map((ad, i) => ({
           slot: i,
           advertiser: ad.advertiser,
           bidAmount: ad.bidAmount?.toString(),
-          finalized: ad.finalized
+          finalized: ad.finalized,
+          name: ad.name,
+          description: ad.description
         })));
 
         // Add ALL ads (not just user's ads)

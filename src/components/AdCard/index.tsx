@@ -40,7 +40,9 @@ export function AdCard({
   onClaim,
   claiming,
 }: AdCardProps) {
-  if (!ad.exists || ad.removed) {
+  const hasAd = ad.advertiser && ad.advertiser !== '0x0000000000000000000000000000000000000000';
+
+  if (!hasAd || ad.removed) {
     return (
       <div className="bg-gray-100 rounded-xl p-6 border border-gray-200">
         <p className="text-gray-500 text-center">Slot {slotIndex + 1}: No ad</p>

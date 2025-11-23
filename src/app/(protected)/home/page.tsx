@@ -26,6 +26,12 @@ export default function HomePage() {
   // Get wallet address from session following proven pattern
   const walletAddress = session?.user?.id as Address | undefined;
 
+  // Clear cache and force re-registration check
+  const handleClearCache = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
+
   // Check registration status
   useEffect(() => {
     const checkRegistration = async () => {
@@ -120,6 +126,13 @@ export default function HomePage() {
             endAdornment={
               session?.user && (
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleClearCache}
+                    className="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded"
+                    title="Clear cache & re-register"
+                  >
+                    Reset
+                  </button>
                   <p className="text-sm font-medium text-gray-700">
                     {session.user.username}
                   </p>

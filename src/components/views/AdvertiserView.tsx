@@ -15,7 +15,7 @@ const SLOTS = [
   { id: 2, name: 'Argentina Only', description: 'Argentina IP addresses only', icon: <MapPin className="w-5 h-5" /> },
 ];
 
-export function AdvertiserView({}: AdvertiserViewProps) {
+export function AdvertiserView({ }: AdvertiserViewProps) {
   const { currentCycle, currentAds, loading, placeAdBid } = useADSContract();
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [bidding, setBidding] = useState(false);
@@ -107,13 +107,12 @@ export function AdvertiserView({}: AdvertiserViewProps) {
               <button
                 key={slot.id}
                 onClick={() => setSelectedSlot(slot.id)}
-                className={`p-5 rounded-xl border-2 transition-all ${
-                  isSelected
-                    ? 'border-purple-500 bg-purple-50'
-                    : hasAd
+                className={`p-5 rounded-xl border-2 transition-all ${isSelected
+                  ? 'border-purple-500 bg-purple-50'
+                  : hasAd
                     ? 'border-gray-300 bg-gray-50'
                     : 'border-gray-200 hover:border-purple-300'
-                }`}
+                  }`}
               >
                 <div className="flex items-start gap-3 mb-3">
                   <div className={`${isSelected ? 'text-purple-600' : 'text-gray-600'}`}>
@@ -228,13 +227,11 @@ export function AdvertiserView({}: AdvertiserViewProps) {
           </button>
 
           {/* Debug Info */}
-          {!loading && (
-            <div className="text-xs text-gray-500 text-center space-y-1">
-              <p>Current Cycle: {currentCycle !== null ? currentCycle.toString() : 'Loading...'}</p>
-              {loading && <p className="text-blue-600">Loading contract data...</p>}
-              {bidding && <p className="text-purple-600">Transaction in progress...</p>}
-            </div>
-          )}
+          <div className="text-xs text-gray-500 text-center space-y-1">
+            <p>Current Cycle: {currentCycle !== null ? currentCycle.toString() : 'Loading...'}</p>
+            {loading && <p className="text-blue-600">Loading contract data...</p>}
+            {bidding && <p className="text-purple-600">Transaction in progress...</p>}
+          </div>
         </form>
       )}
     </div>

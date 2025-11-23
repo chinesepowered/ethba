@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useADSContract } from '@/hooks/useADSContract';
 import { Globe, MapPin, CheckCircle, WarningCircle } from 'iconoir-react';
 import { parseEther, formatEther } from 'viem';
@@ -15,18 +15,55 @@ const SLOTS = [
   { id: 2, name: 'Argentina Only', description: 'Argentina IP addresses only', icon: <MapPin className="w-5 h-5" /> },
 ];
 
-export function AdvertiserView({}: AdvertiserViewProps) {
-  const { currentCycle, currentAds, loading, placeAdBid, refreshData } = useADSContract();
+export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
+  const { currentCycle, currentAds, loading, placeAdBid, refreshData, getAdsForCycle } = useADSContract();
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [bidding, setBidding] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [adHistory, setAdHistory] = useState<Array<{ cycle: bigint; slot: number; ad: any }>>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     imageUrl: '',
     bidAmount: '',
   });
+
+  // Load advertiser history
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!currentCycle || !userAddress) return;
+
+      setLoadingHistory(true);
+      console.log('[AdvertiserView] Loading ad history for user:', userAddress);
+
+      const history: Array<{ cycle: bigint; slot: number; ad: any }> = [];
+
+      // Check all cycles from 0 to current
+      for (let c = 0n; c <= currentCycle; c++) {
+        const ads = await getAdsForCycle(c);
+
+        // Check each slot for this user's ads
+        ads.forEach((ad, slotIndex) => {
+          const isMyAd = ad.advertiser &&
+            ad.advertiser.toLowerCase() === userAddress.toLowerCase() &&
+            ad.advertiser !== '0x0000000000000000000000000000000000000000';
+
+          if (isMyAd) {
+            console.log(`[AdvertiserView] Found my ad: cycle ${c.toString()}, slot ${slotIndex}`, ad);
+            history.push({ cycle: c, slot: slotIndex, ad });
+          }
+        });
+      }
+
+      console.log('[AdvertiserView] Total ads found:', history.length);
+      setAdHistory(history);
+      setLoadingHistory(false);
+    };
+
+    loadHistory();
+  }, [currentCycle, userAddress, getAdsForCycle]);
 
   // Debug: Log state for troubleshooting
   console.log('[AdvertiserView] State:', {
@@ -35,6 +72,7 @@ export function AdvertiserView({}: AdvertiserViewProps) {
     bidding,
     selectedSlot,
     hasFormData: !!formData.bidAmount,
+    historyCount: adHistory.length,
   });
 
   const handleSubmitBid = async (e: React.FormEvent) => {
@@ -303,6 +341,65 @@ export function AdvertiserView({}: AdvertiserViewProps) {
           </div>
         </form>
       )}
+
+      {/* Ad History Section */}
+      <div className="mt-8">
+        <h3 className="font-bold text-gray-900 text-lg mb-4">Your Ad History</h3>
+
+        {loadingHistory ? (
+          <div className="bg-gray-50 rounded-xl p-6 text-center">
+            <p className="text-gray-600">Loading your ad history...</p>
+          </div>
+        ) : adHistory.length === 0 ? (
+          <div className="bg-gray-50 rounded-xl p-6 text-center">
+            <p className="text-gray-600">No ads found. Place your first bid above!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {adHistory.map(({ cycle, slot, ad }, index) => (
+              <div
+                key={index}
+                className="bg-white border-2 border-gray-200 rounded-xl p-4"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                      Cycle {cycle.toString()}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                      {SLOTS[slot]?.icon}
+                      {SLOTS[slot]?.name}
+                    </span>
+                    {ad.finalized && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                        Finalized
+                      </span>
+                    )}
+                    {ad.removed && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                        Removed
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">
+                    {formatEther(ad.bidAmount || 0n)} WLD
+                  </span>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-1">{ad.name || 'Unnamed Ad'}</h4>
+                <p className="text-sm text-gray-600 mb-2">{ad.description || 'No description'}</p>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span>{ad.totalClicks?.toString() || '0'} clicks</span>
+                  {ad.totalClicks > 0n && (
+                    <span>
+                      Reward per click: {formatEther((ad.bidAmount * 95n) / 100n / ad.totalClicks)} WLD
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\code\\ethba\\contracts\\ADS.sol": {
-      "lastModificationDate": 1763824562443,
-      "contentHash": "15dd54310dae85407c1b1855dd6dd334",
+      "lastModificationDate": 1763858913024,
+      "contentHash": "244269bc55cb3b2eb8ee79e1608a8a4d",
       "sourceName": "contracts/ADS.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -270,8 +270,8 @@
       ]
     },
     "C:\\code\\ethba\\contracts\\ADSDemo.sol": {
-      "lastModificationDate": 1763841401966,
-      "contentHash": "8f8a41a2b8455bb7fd88cd41096b2ae0",
+      "lastModificationDate": 1763859894877,
+      "contentHash": "3cdb4526fd2698658353d462d3b2c9fa",
       "sourceName": "contracts/ADSDemo.sol",
       "solcConfig": {
         "version": "0.8.20",

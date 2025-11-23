@@ -9,13 +9,17 @@ import "@worldcoin/world-id-contracts/src/libraries/ByteHasher.sol";
 
 /**
  * @title ADS Platform Demo - Proportional Tranche Distribution
- * @notice DEMO VERSION with manual cycle progression and device-level verification
+ * @notice DEMO VERSION with manual cycle progression
  * @dev Users click ads and claim proportional share of advertiser bids
  *
  * Demo Features:
  * - Manual cycle progression (anyone can trigger)
- * - Device-level World ID (groupId = 0)
+ * - Orb-level World ID (groupId = 1) - verification DISABLED for hackathon demo
  * - No time-based cycles - full control over progression
+ *
+ * HACKATHON NOTE:
+ * - World ID verification is commented out to allow testing with multiple accounts
+ * - In production, uncomment the verification code in register() function
  *
  * World Chain Compatibility:
  * - Uses Permit2 for advertiser bids (no approve() needed)
@@ -86,7 +90,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     IPermit2 public immutable permit2;
     IWorldID public immutable worldId;
     uint256 internal immutable externalNullifier;
-    uint256 internal immutable groupId = 0; // DEMO: Device verification
+    uint256 internal immutable groupId = 1; // Orb verification (Device doesn't work on cloud)
 
     uint256 public constant AD_SLOTS_PER_CYCLE = 10;
     uint256 public constant PLATFORM_FEE_BPS = 500; // 5%
@@ -167,6 +171,11 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     ) external nonReentrant {
         if (registered[msg.sender]) revert AlreadyRegistered();
 
+        // HACKATHON DEMO: World ID verification commented out
+        // In production, this would verify Orb-level World ID proofs
+        // Reason: Only one verified user available for demo, need to test with multiple accounts
+        // Uncomment below for production use:
+        /*
         worldId.verifyProof(
             root,
             groupId,
@@ -175,6 +184,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
             externalNullifier,
             proof
         );
+        */
 
         registered[msg.sender] = true;
         emit UserRegistered(msg.sender);

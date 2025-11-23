@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
 async function main() {
-  console.log("Deploying ADS Platform contracts to World Chain...\n");
+  console.log("Deploying ADSDemo contract to World Chain...\n");
 
   // World Chain contract addresses
   const WLD_TOKEN = "0x2cFc85d8E48F8EAB294be644d9E25C3030863003"; // WLD on World Chain Mainnet
@@ -26,8 +26,8 @@ async function main() {
   console.log("Account balance:", (await hre.ethers.provider.getBalance(deployer.address)).toString());
   console.log();
 
-  // Deploy ADSDemo contract
-  console.log("Deploying ADSDemo contract...");
+  // Deploy ADSDemo contract (manual cycle progression for demo/testing)
+  console.log("Deploying ADSDemo contract (manual cycles for demo)...");
   const ADSDemo = await hre.ethers.getContractFactory("ADSDemo");
   const adsDemo = await ADSDemo.deploy(WLD_TOKEN, PERMIT2, WORLD_ID, APP_ID, ACTION);
 
@@ -37,37 +37,22 @@ async function main() {
   console.log("✅ ADSDemo deployed to:", adsDemoAddress);
   console.log();
 
-  // Deploy ADS contract (production version with 24-hour cycles)
-  console.log("Deploying ADS contract (production)...");
-  const ADS = await hre.ethers.getContractFactory("ADS");
-  const ads = await ADS.deploy(WLD_TOKEN, PERMIT2, WORLD_ID, APP_ID, ACTION);
-
-  await ads.waitForDeployment();
-  const adsAddress = await ads.getAddress();
-
-  console.log("✅ ADS deployed to:", adsAddress);
-  console.log();
-
   // Summary
   console.log("=".repeat(60));
   console.log("DEPLOYMENT SUMMARY");
   console.log("=".repeat(60));
   console.log();
-  console.log("Copy these addresses to your .env.local file:");
+  console.log("Copy this address to your .env.local file:");
   console.log();
   console.log(`NEXT_PUBLIC_ADS_DEMO_CONTRACT_ADDRESS=${adsDemoAddress}`);
-  console.log(`NEXT_PUBLIC_WLD_TOKEN_ADDRESS=${WLD_TOKEN}`);
   console.log();
   console.log("Next steps:");
-  console.log("1. Copy the addresses above to .env.local");
-  console.log("2. Generate a backend signer key:");
-  console.log("   node -e \"console.log('0x' + require('crypto').randomBytes(32).toString('hex'))\"");
-  console.log("3. Set the backend signer in the contract:");
-  console.log(`   await contract.setBackendSigner(YOUR_SIGNER_ADDRESS)`);
+  console.log("1. Copy the address above to .env.local");
+  console.log("2. Add authorized signer:");
+  console.log("   pnpm hardhat run scripts/add-signer.cjs --network worldchain");
   console.log();
-  console.log("Verifying contracts on block explorer...");
+  console.log("Verify contract on block explorer:");
   console.log(`npx hardhat verify --network worldchain ${adsDemoAddress} ${WLD_TOKEN} ${PERMIT2} ${WORLD_ID} "${APP_ID}" "${ACTION}"`);
-  console.log(`npx hardhat verify --network worldchain ${adsAddress} ${WLD_TOKEN} ${PERMIT2} ${WORLD_ID} "${APP_ID}" "${ACTION}"`);
 }
 
 main().catch((error) => {

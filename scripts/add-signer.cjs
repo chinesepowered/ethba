@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
 async function main() {
-  const CONTRACT_ADDRESS = "0x8b9866bA17D1aaE91a7c5c73eeD502C992441cB6";
+  const CONTRACT_ADDRESS = "0x1EbFd11bB23ca246Fe91001C5A51ad931872e9b0";
   const SIGNER_ADDRESS = "0x59876B0c53Bd8af33EFa3157dfcFDA4131a5A2b0";
 
   console.log("Adding authorized signer to ADSDemo contract...");

@@ -258,7 +258,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
         if (slotIndex >= AD_SLOTS_PER_CYCLE) revert InvalidSlot();
 
         AdSlot storage slot = adSlots[cycle][slotIndex];
-        if (slot.finalized) revert AlreadyFinalized();
+        // Allow clicks on finalized slots - finalization just means the cycle ended
         if (slot.removed) revert AdWasRemoved();
         if (hasClicked[cycle][slotIndex][msg.sender]) revert AlreadyClicked();
 

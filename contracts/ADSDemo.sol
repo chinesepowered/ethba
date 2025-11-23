@@ -369,7 +369,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
 
         // Finalize the previous cycle if not already done
         uint256 cycleToFinalize = currentCycle - 1;
-        if (cycleToFinalize > lastFinalizedCycle) {
+        if (cycleToFinalize >= lastFinalizedCycle) {
             for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
                 _finalizeAdSlot(cycleToFinalize, i);
             }

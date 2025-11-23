@@ -48,7 +48,7 @@ export function AdView({ userAddress }: AdViewProps) {
     console.log(`[AdView] 🖱️ Click button pressed for slot ${slotIndex}`);
     console.log(`[AdView] 📊 State - clickableCycle: ${clickableCycle}, currentCycle: ${currentCycle}, userAddress: ${userAddress}`);
 
-    if (!clickableCycle) {
+    if (clickableCycle === null) {
       console.log('[AdView] ❌ No clickable cycle available');
       return;
     }

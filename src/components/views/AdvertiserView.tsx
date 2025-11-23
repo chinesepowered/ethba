@@ -16,7 +16,7 @@ const SLOTS = [
 ];
 
 export function AdvertiserView({}: AdvertiserViewProps) {
-  const { currentCycle, currentAds, placeAdBid } = useADSContract();
+  const { currentCycle, currentAds, loading, placeAdBid } = useADSContract();
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [bidding, setBidding] = useState(false);
   const [formData, setFormData] = useState({
@@ -172,10 +172,10 @@ export function AdvertiserView({}: AdvertiserViewProps) {
             />
           </div>
 
-          {/* Image URL */}
+          {/* URL */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Image URL (optional)
+              URL (optional)
             </label>
             <input
               type="url"
@@ -184,6 +184,9 @@ export function AdvertiserView({}: AdvertiserViewProps) {
               className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
               placeholder="https://example.com/image.png"
             />
+            <p className="text-xs text-gray-600 mt-1">
+              Link to image or product page
+            </p>
           </div>
 
           {/* Bid Amount */}
@@ -193,16 +196,16 @@ export function AdvertiserView({}: AdvertiserViewProps) {
             </label>
             <input
               type="number"
-              step="0.01"
-              min="0"
+              step="0.000001"
+              min="0.000001"
               value={formData.bidAmount}
               onChange={(e) => setFormData({ ...formData, bidAmount: e.target.value })}
               className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
-              placeholder="10.0"
+              placeholder="1.0"
               required
             />
             <p className="text-xs text-gray-600 mt-1">
-              Platform fee: 5% • Users receive: 95% split equally
+              No minimum bid • Platform fee: 5% • Users receive: 95% split equally
             </p>
           </div>
 
@@ -220,11 +223,17 @@ export function AdvertiserView({}: AdvertiserViewProps) {
           {/* Submit */}
           <button
             type="submit"
-            disabled={bidding}
+            disabled={bidding || loading || currentCycle === null}
             className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {bidding ? 'Placing Bid...' : 'Place Bid'}
+            {bidding ? 'Placing Bid...' : loading ? 'Loading...' : 'Place Bid'}
           </button>
+
+          {currentCycle === null && !loading && (
+            <p className="text-xs text-red-600 text-center">
+              Failed to load contract data. Please refresh the page.
+            </p>
+          )}
         </form>
       )}
     </div>

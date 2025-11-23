@@ -30,13 +30,12 @@ export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
     bidAmount: '',
   });
 
-  // Load advertiser history
+  // Load advertiser history - shows ALL ads from ALL users
   useEffect(() => {
     const loadHistory = async () => {
-      if (!currentCycle || !userAddress) return;
+      if (currentCycle === null || currentCycle === undefined) return;
 
       setLoadingHistory(true);
-      console.log('[AdvertiserView] Loading ad history for user:', userAddress);
 
       const history: Array<{ cycle: bigint; slot: number; ad: any }> = [];
 
@@ -44,47 +43,29 @@ export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
       for (let c = 0n; c <= currentCycle; c++) {
         const ads = await getAdsForCycle(c);
 
-        // Check each slot for this user's ads
+        // Add ALL ads (not just user's ads)
         ads.forEach((ad, slotIndex) => {
-          const isMyAd = ad.advertiser &&
-            ad.advertiser.toLowerCase() === userAddress.toLowerCase() &&
+          const hasAd = ad.advertiser &&
             ad.advertiser !== '0x0000000000000000000000000000000000000000';
 
-          if (isMyAd) {
-            console.log(`[AdvertiserView] Found my ad: cycle ${c.toString()}, slot ${slotIndex}`, ad);
+          if (hasAd) {
             history.push({ cycle: c, slot: slotIndex, ad });
           }
         });
       }
 
-      console.log('[AdvertiserView] Total ads found:', history.length);
+      console.log(`[AdvertiserView] Loaded ${history.length} ads across ${(currentCycle + 1n).toString()} cycles`);
       setAdHistory(history);
       setLoadingHistory(false);
     };
 
     loadHistory();
-  }, [currentCycle, userAddress, getAdsForCycle]);
-
-  // Debug: Log state for troubleshooting
-  console.log('[AdvertiserView] State:', {
-    currentCycle: currentCycle?.toString(),
-    loading,
-    bidding,
-    selectedSlot,
-    hasFormData: !!formData.bidAmount,
-    historyCount: adHistory.length,
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCycle]); // Only re-run when currentCycle changes, NOT on getAdsForCycle
 
   const handleSubmitBid = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedSlot === null || currentCycle === null) return;
-
-    console.log('[AdvertiserView] Placing bid:', {
-      cycle: currentCycle.toString(),
-      slot: selectedSlot,
-      name: formData.name,
-      bidAmount: formData.bidAmount,
-    });
 
     setBidding(true);
     setSuccessMessage(null);
@@ -93,7 +74,7 @@ export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
     try {
       const bidAmount = parseEther(formData.bidAmount);
 
-      console.log(`[AdvertiserView] Calling placeAdBid for cycle ${currentCycle.toString()}, slot ${selectedSlot}`);
+      console.log(`[AdvertiserView] Placing bid: cycle ${currentCycle.toString()}, slot ${selectedSlot}, amount ${formData.bidAmount} WLD`);
 
       await placeAdBid(
         currentCycle,

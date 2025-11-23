@@ -33,9 +33,7 @@ export function AdView({ userAddress }: AdViewProps) {
   useEffect(() => {
     const loadClickableAds = async () => {
       if (clickableCycle !== null) {
-        console.log('[AdView] Loading ads for cycle:', clickableCycle.toString());
         const ads = await getAdsForCycle(clickableCycle);
-        console.log('[AdView] Loaded ads:', ads);
         setClickableAds(ads);
       } else {
         setClickableAds([]);
@@ -44,7 +42,7 @@ export function AdView({ userAddress }: AdViewProps) {
 
     loadClickableAds();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clickableCycle, userAddress]);
+  }, [clickableCycle]); // Only re-run when clickableCycle changes
 
   const handleClick = async (slotIndex: number) => {
     if (!clickableCycle) return;

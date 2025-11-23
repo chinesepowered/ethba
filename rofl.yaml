@@ -7,7 +7,7 @@ description: ADS Platform claim signing service with geo-IP and device-based rew
 
 # Docker image from public registry
 # Update this after building and pushing your image
-image: your-dockerhub-username/ads-backend:latest
+image: chinesemanccsf/ads-backend:latest
 
 # Resource allocation
 resources:

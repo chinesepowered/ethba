@@ -1,11 +1,11 @@
-# ADS Platform Backend
+# ADS Platform Backend (v2)
 
-Signing service for ADS Platform claim rewards. Deployed to Oasis ROFL (Trusted Execution Environment).
+Click authorization service for ADS Platform. Verifies targeting criteria and authorizes clicks. Deployed to Oasis ROFL (Trusted Execution Environment).
 
 ## Features
 
-- **Dynamic Rewards**: Calculate rewards based on geo-IP and device
-- **Cryptographic Signing**: Sign claim messages to prevent manipulation
+- **Targeting Verification**: Verify users meet slot targeting criteria (geo-IP, device type)
+- **Click Authorization**: Sign click authorizations for proportional reward distribution
 - **TEE Deployment**: Run in Oasis ROFL for verifiable computation
 - **Health Checks**: Built-in health endpoint for monitoring
 
@@ -35,14 +35,18 @@ Server runs at `http://localhost:3001`
 # Health check
 curl http://localhost:3001/health
 
-# Sign claim (example)
-curl -X POST http://localhost:3001/api/sign-claim \
+# Authorize click (example)
+curl -X POST http://localhost:3001/api/authorize-click \
   -H "Content-Type: application/json" \
   -d '{
     "userAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
     "cycle": "1",
-    "slotIndex": 0
+    "slotIndex": 0,
+    "slotType": 0
   }'
+
+# Get slot types
+curl http://localhost:3001/api/slot-types
 ```
 
 ## Docker Deployment
@@ -141,37 +145,70 @@ Health check endpoint.
 }
 ```
 
-### POST /api/sign-claim
+### POST /api/authorize-click
 
-Sign a claim for reward.
+Authorize a click for proportional reward distribution.
 
 **Request:**
 ```json
 {
   "userAddress": "0x...",
   "cycle": "1",
-  "slotIndex": 0
+  "slotIndex": 0,
+  "slotType": 0
 }
 ```
 
 **Response:**
 ```json
 {
-  "rewardAmount": "1000000000000000000",
+  "authorized": true,
+  "slotType": "GLOBAL",
   "nonce": 1234567890,
   "timestamp": 1234567890,
   "signature": "0x..."
 }
 ```
 
-## Reward Calculation
+**Error Response (403):**
+```json
+{
+  "error": "User does not meet targeting criteria",
+  "slotType": "US_ONLY"
+}
+```
 
-| Location | Device | Reward |
-|----------|--------|--------|
-| Argentina | Android | 1 ADS |
-| Other | Android | 2 ADS |
-| Argentina | iOS | 2 ADS (1 base + 1 bonus) |
-| Other | iOS | 3 ADS (2 base + 1 bonus) |
+### GET /api/slot-types
+
+Get list of available slot types and targeting criteria.
+
+**Response:**
+```json
+{
+  "slotTypes": [
+    { "id": 0, "name": "GLOBAL", "description": "Anyone can claim" },
+    { "id": 1, "name": "US_ONLY", "description": "US IP addresses only" },
+    ...
+  ]
+}
+```
+
+## Targeting Criteria
+
+The backend verifies users meet slot targeting requirements before authorizing clicks:
+
+| Slot Type | Verification |
+|-----------|-------------|
+| GLOBAL | All users allowed |
+| US_ONLY | US IP address required |
+| AR_ONLY | Argentina IP address required |
+| EU_ONLY | EU IP address required |
+| ASIA_ONLY | Asian IP address required |
+| MOBILE_ONLY | Mobile device required |
+| DESKTOP_ONLY | Desktop device required |
+| IOS_ONLY | iOS device required |
+| ANDROID_ONLY | Android device required |
+| CUSTOM | Custom targeting logic |
 
 ## Security
 

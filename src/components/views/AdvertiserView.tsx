@@ -187,7 +187,7 @@ export function AdvertiserView({}: AdvertiserViewProps) {
                   <div className="bg-white rounded-lg p-2 mt-2 border border-gray-200">
                     <p className="text-xs text-gray-600 mb-1">Current Bid</p>
                     <p className="text-sm font-semibold text-purple-600">
-                      {formatEther(currentAd.bidAmount)} WLD
+                      {formatEther(currentAd.bidAmount || 0n)} WLD
                     </p>
                   </div>
                 ) : (

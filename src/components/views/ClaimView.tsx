@@ -137,15 +137,15 @@ export function ClaimView({ userAddress }: ClaimViewProps) {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        Cycle {claim.cycle.toString()}
+                        Cycle {claim.cycle?.toString() || '0'}
                       </span>
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
-                        Slot {claim.slot.toString()}
+                        Slot {claim.slot?.toString() || '0'}
                       </span>
                     </div>
                     <div className="flex items-baseline gap-2">
                       <p className="text-2xl font-bold text-gray-900">
-                        {formatEther(claim.amount)} WLD
+                        {formatEther(claim.amount || 0n)} WLD
                       </p>
                     </div>
                     {claim.deadline && (

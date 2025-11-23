@@ -191,11 +191,11 @@ export function AdView({ userAddress }: AdViewProps) {
 
                   {/* Stats */}
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                    <span>{ad.totalClicks} clicks</span>
+                    <span>{ad.totalClicks?.toString() || '0'} clicks</span>
                     <span>
-                      Est. {ad.totalClicks > 0
-                        ? formatEther((ad.bidAmount * 95n) / 100n / (ad.totalClicks + 1n))
-                        : formatEther((ad.bidAmount * 95n) / 100n)
+                      Est. {(ad.totalClicks || 0n) > 0
+                        ? formatEther(((ad.bidAmount || 0n) * 95n) / 100n / ((ad.totalClicks || 0n) + 1n))
+                        : formatEther(((ad.bidAmount || 0n) * 95n) / 100n)
                       } WLD/click
                     </span>
                   </div>

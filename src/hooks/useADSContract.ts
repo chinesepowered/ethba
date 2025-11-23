@@ -11,11 +11,11 @@ export interface AdSlot {
   description: string;
   imageUrl: string;
   bidAmount: bigint;
+  finalized: boolean;
+  removed: boolean;
   totalClicks: bigint;
   claimedAmount: bigint;
   finalizedAt: bigint;
-  exists: boolean;
-  removed: boolean;
 }
 
 export interface PoolBalances {
@@ -104,11 +104,11 @@ export function useADSContract() {
             description: slot?.description || '',
             imageUrl: slot?.imageUrl || '',
             bidAmount: slot?.bidAmount ?? 0n,
+            finalized: slot?.finalized ?? false,
+            removed: slot?.removed ?? false,
             totalClicks: slot?.totalClicks ?? 0n,
             claimedAmount: slot?.claimedAmount ?? 0n,
             finalizedAt: slot?.finalizedAt ?? 0n,
-            exists: slot?.exists ?? false,
-            removed: slot?.removed ?? false,
           });
         } catch (slotError) {
           console.error(`Failed to fetch slot ${i} for cycle ${cycle}:`, slotError);
@@ -119,11 +119,11 @@ export function useADSContract() {
             description: '',
             imageUrl: '',
             bidAmount: 0n,
+            finalized: false,
+            removed: false,
             totalClicks: 0n,
             claimedAmount: 0n,
             finalizedAt: 0n,
-            exists: false,
-            removed: false,
           });
         }
       }

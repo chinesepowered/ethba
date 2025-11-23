@@ -45,8 +45,13 @@ export function AdView({ userAddress }: AdViewProps) {
   }, [clickableCycle]); // Only re-run when clickableCycle changes
 
   const handleClick = async (slotIndex: number) => {
-    if (!clickableCycle) return;
+    console.log(`[AdView] 🖱️ Click button pressed for slot ${slotIndex}`);
+    if (!clickableCycle) {
+      console.log('[AdView] ❌ No clickable cycle available');
+      return;
+    }
 
+    console.log(`[AdView] 📡 Requesting authorization for cycle ${clickableCycle}, slot ${slotIndex}`);
     setClicking({ ...clicking, [slotIndex]: true });
 
     try {
@@ -61,6 +66,8 @@ export function AdView({ userAddress }: AdViewProps) {
           slotIndex,
         }),
       });
+
+      console.log('[AdView] 📨 Authorization response:', response.status, response.ok);
 
       if (!response.ok) {
         const error = await response.json();

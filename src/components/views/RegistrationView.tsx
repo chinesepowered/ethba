@@ -289,7 +289,7 @@ export function RegistrationView() {
     const verifyPayload = {
       action,
       signal: walletAddress, // Use wallet address as signal
-      verification_level: VerificationLevel.Orb, // Orb required (Device doesn't work in smart contract)
+      verification_level: VerificationLevel.Device, // Orb required (Device doesn't work in smart contract)
     };
 
     MiniKit.commands.verify(verifyPayload);

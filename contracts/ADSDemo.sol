@@ -360,16 +360,12 @@ contract ADSDemo is Ownable, ReentrancyGuard {
      * @dev Finalizes current cycle and increments counter
      */
     function progressCycle() external nonReentrant {
-        if (currentCycle == 0) {
-            // First cycle, just increment
-            currentCycle = 1;
-            emit CycleFinalized(0);
-            return;
-        }
+        uint256 cycleToFinalize = currentCycle;
 
-        // Finalize the previous cycle if not already done
-        uint256 cycleToFinalize = currentCycle - 1;
-        if (cycleToFinalize >= lastFinalizedCycle) {
+        // Finalize current cycle before moving forward
+        // Special case: when both are 0, this is the first finalization
+        if (cycleToFinalize > lastFinalizedCycle ||
+            (cycleToFinalize == 0 && lastFinalizedCycle == 0)) {
             for (uint256 i = 0; i < AD_SLOTS_PER_CYCLE; i++) {
                 _finalizeAdSlot(cycleToFinalize, i);
             }

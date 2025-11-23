@@ -86,16 +86,20 @@ export function useADSContract() {
   // Get ads from a specific cycle
   const getAdsForCycle = useCallback(async (cycle: bigint): Promise<AdSlot[]> => {
     try {
+      console.log(`[useADSContract] 🔍 Fetching ads for cycle ${cycle} from contract ${CONTRACTS.ADS_DEMO}`);
       const slots = [];
       // Fetch all 3 slots for the cycle
       for (let i = 0; i < 3; i++) {
         try {
+          console.log(`[useADSContract] 📞 Calling adSlots(${cycle}, ${i})...`);
           const slot = await client.readContract({
             address: CONTRACTS.ADS_DEMO,
             abi: ADS_DEMO_ABI,
             functionName: 'adSlots',
             args: [cycle, BigInt(i)],
           }) as AdSlot;
+
+          console.log(`[useADSContract] 📦 RAW response for adSlots(${cycle}, ${i}):`, slot);
 
           // Ensure slot has all required properties with defaults
           const processedSlot = {

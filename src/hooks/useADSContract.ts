@@ -300,6 +300,7 @@ export function useADSContract() {
 
   // Progress to next cycle (anyone can call)
   const progressCycle = async () => {
+    console.log('[useADSContract] Progressing cycle...');
     const result = await MiniKit.commandsAsync.sendTransaction({
       transaction: [
         {
@@ -312,7 +313,13 @@ export function useADSContract() {
     });
 
     if (result.finalPayload.status === 'success') {
+      console.log('[useADSContract] Cycle progressed successfully, refreshing data...');
       await refreshData(); // Refresh data after cycle progression
+      console.log('[useADSContract] Data refreshed, new cycle:', await client.readContract({
+        address: CONTRACTS.ADS_DEMO,
+        abi: ADS_DEMO_ABI,
+        functionName: 'getCurrentCycle',
+      }));
       return result.finalPayload;
     } else {
       throw new Error(result.finalPayload.error_code || 'Transaction failed');

@@ -170,12 +170,6 @@
       },
       {
         "indexed": false,
-        "internalType": "enum ADSDemo.SlotType",
-        "name": "slotType",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
         "internalType": "uint256",
         "name": "bidAmount",
         "type": "uint256"
@@ -511,11 +505,6 @@
         "type": "uint256"
       },
       {
-        "internalType": "enum ADSDemo.SlotType",
-        "name": "slotType",
-        "type": "uint8"
-      },
-      {
         "internalType": "bool",
         "name": "finalized",
         "type": "bool"
@@ -716,11 +705,6 @@
             "internalType": "uint256",
             "name": "bidAmount",
             "type": "uint256"
-          },
-          {
-            "internalType": "enum ADSDemo.SlotType",
-            "name": "slotType",
-            "type": "uint8"
           },
           {
             "internalType": "bool",
@@ -939,11 +923,6 @@
         "internalType": "uint256",
         "name": "bidAmount",
         "type": "uint256"
-      },
-      {
-        "internalType": "enum ADSDemo.SlotType",
-        "name": "slotType",
-        "type": "uint8"
       },
       {
         "components": [

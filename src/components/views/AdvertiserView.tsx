@@ -37,7 +37,7 @@ export function AdvertiserView({}: AdvertiserViewProps) {
 
   const handleSubmitBid = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedSlot === null || !currentCycle) return;
+    if (selectedSlot === null || currentCycle === null) return;
 
     setBidding(true);
 

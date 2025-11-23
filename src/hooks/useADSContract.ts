@@ -195,7 +195,7 @@ export function useADSContract() {
     bidAmount: bigint
   ) => {
     // Create Permit2 permit structure (World Mini Apps format - all strings)
-    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+    const deadline = Math.floor(Date.now() / 1000) + 1800; // 30 minutes from now
     const nonce = Date.now();
 
     // Use MiniKit's sendTransaction with Permit2 placeholder

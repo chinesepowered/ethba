@@ -11,7 +11,6 @@ export interface AdSlot {
   description: string;
   imageUrl: string;
   bidAmount: bigint;
-  slotType: number;
   totalClicks: bigint;
   claimedAmount: bigint;
   finalizedAt: bigint;
@@ -179,8 +178,7 @@ export function useADSContract() {
     name: string,
     description: string,
     imageUrl: string,
-    bidAmount: bigint,
-    slotType: number
+    bidAmount: bigint
   ) => {
     // Create Permit2 permit structure (World Mini Apps format - all strings)
     const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
@@ -201,7 +199,6 @@ export function useADSContract() {
             description,
             imageUrl,
             bidAmount,
-            slotType,
             {
               permitted: {
                 token: CONTRACTS.WLD_TOKEN,

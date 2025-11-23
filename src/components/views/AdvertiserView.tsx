@@ -2,24 +2,17 @@
 
 import { useState } from 'react';
 import { useADSContract } from '@/hooks/useADSContract';
-import { Globe, MapPin, Phone, Apple, InfoCircle } from 'iconoir-react';
+import { Globe, MapPin } from 'iconoir-react';
 import { parseEther, formatEther } from 'viem';
 
 interface AdvertiserViewProps {
   userAddress: string;
 }
 
-const SLOT_TYPES = [
-  { value: 0, label: 'Global', description: 'Anyone can click', icon: <Globe className="w-5 h-5" /> },
-  { value: 1, label: 'US Only', description: 'US IP addresses only', icon: <MapPin className="w-5 h-5" /> },
-  { value: 2, label: 'Argentina Only', description: 'Argentina IP addresses only', icon: <MapPin className="w-5 h-5" /> },
-  { value: 3, label: 'EU Only', description: 'EU IP addresses only', icon: <MapPin className="w-5 h-5" /> },
-  { value: 4, label: 'Asia Only', description: 'Asia IP addresses only', icon: <MapPin className="w-5 h-5" /> },
-  { value: 5, label: 'Mobile Only', description: 'Mobile devices only', icon: <Phone className="w-5 h-5" /> },
-  { value: 6, label: 'Desktop Only', description: 'Desktop devices only', icon: <InfoCircle className="w-5 h-5" /> },
-  { value: 7, label: 'iOS Only', description: 'iOS devices only', icon: <Apple className="w-5 h-5" /> },
-  { value: 8, label: 'Android Only', description: 'Android devices only', icon: <Phone className="w-5 h-5" /> },
-  { value: 9, label: 'Custom', description: 'Custom targeting', icon: <InfoCircle className="w-5 h-5" /> },
+const SLOTS = [
+  { id: 0, name: 'Global', description: 'Anyone can click', icon: <Globe className="w-5 h-5" /> },
+  { id: 1, name: 'US Only', description: 'US IP addresses only', icon: <MapPin className="w-5 h-5" /> },
+  { id: 2, name: 'Argentina Only', description: 'Argentina IP addresses only', icon: <MapPin className="w-5 h-5" /> },
 ];
 
 export function AdvertiserView({}: AdvertiserViewProps) {
@@ -31,7 +24,6 @@ export function AdvertiserView({}: AdvertiserViewProps) {
     description: '',
     imageUrl: '',
     bidAmount: '',
-    slotType: 0,
   });
 
   const handleSubmitBid = async (e: React.FormEvent) => {
@@ -49,8 +41,7 @@ export function AdvertiserView({}: AdvertiserViewProps) {
         formData.name,
         formData.description,
         formData.imageUrl,
-        bidAmount,
-        formData.slotType
+        bidAmount
       );
 
       alert('Bid placed successfully!');
@@ -61,7 +52,6 @@ export function AdvertiserView({}: AdvertiserViewProps) {
         description: '',
         imageUrl: '',
         bidAmount: '',
-        slotType: 0,
       });
       setSelectedSlot(null);
     } catch (error: unknown) {
@@ -98,17 +88,17 @@ export function AdvertiserView({}: AdvertiserViewProps) {
       {/* Slot Selection */}
       <div>
         <h3 className="font-bold text-gray-900 mb-4">Select Ad Slot</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {Array.from({ length: 10 }).map((_, index) => {
-            const currentAd = currentAds[index];
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {SLOTS.map((slot) => {
+            const currentAd = currentAds[slot.id];
             const hasAd = currentAd?.advertiser !== '0x0000000000000000000000000000000000000000';
-            const isSelected = selectedSlot === index;
+            const isSelected = selectedSlot === slot.id;
 
             return (
               <button
-                key={index}
-                onClick={() => setSelectedSlot(index)}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                key={slot.id}
+                onClick={() => setSelectedSlot(slot.id)}
+                className={`p-5 rounded-xl border-2 transition-all ${
                   isSelected
                     ? 'border-purple-500 bg-purple-50'
                     : hasAd
@@ -116,19 +106,27 @@ export function AdvertiserView({}: AdvertiserViewProps) {
                     : 'border-gray-200 hover:border-purple-300'
                 }`}
               >
-                <div className="text-center">
-                  <p className="font-bold text-lg mb-1">Slot {index}</p>
-                  {hasAd && currentAd ? (
-                    <>
-                      <p className="text-xs text-gray-600 mb-1">Current Bid</p>
-                      <p className="text-sm font-semibold text-purple-600">
-                        {formatEther(currentAd.bidAmount)} WLD
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-xs text-gray-500">Available</p>
-                  )}
+                <div className="flex items-start gap-3 mb-3">
+                  <div className={`${isSelected ? 'text-purple-600' : 'text-gray-600'}`}>
+                    {slot.icon}
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="font-bold text-base mb-1">{slot.name}</p>
+                    <p className="text-xs text-gray-600">{slot.description}</p>
+                  </div>
                 </div>
+                {hasAd && currentAd ? (
+                  <div className="bg-white rounded-lg p-2 mt-2 border border-gray-200">
+                    <p className="text-xs text-gray-600 mb-1">Current Bid</p>
+                    <p className="text-sm font-semibold text-purple-600">
+                      {formatEther(currentAd.bidAmount)} WLD
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-green-50 rounded-lg p-2 mt-2 border border-green-200">
+                    <p className="text-xs text-green-700 font-medium">Available</p>
+                  </div>
+                )}
               </button>
             );
           })}
@@ -138,7 +136,9 @@ export function AdvertiserView({}: AdvertiserViewProps) {
       {/* Bid Form */}
       {selectedSlot !== null && (
         <form onSubmit={handleSubmitBid} className="bg-white border-2 border-gray-200 rounded-xl p-6 space-y-4">
-          <h3 className="font-bold text-gray-900 text-lg">Place Bid for Slot {selectedSlot}</h3>
+          <h3 className="font-bold text-gray-900 text-lg">
+            Place Bid for {SLOTS[selectedSlot].name}
+          </h3>
 
           {/* Ad Name */}
           <div>
@@ -184,35 +184,6 @@ export function AdvertiserView({}: AdvertiserViewProps) {
               className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
               placeholder="https://example.com/image.png"
             />
-          </div>
-
-          {/* Slot Type */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Target Audience *
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {SLOT_TYPES.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, slotType: type.value })}
-                  className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left ${
-                    formData.slotType === type.value
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-purple-300'
-                  }`}
-                >
-                  <div className={formData.slotType === type.value ? 'text-purple-600' : 'text-gray-600'}>
-                    {type.icon}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm">{type.label}</p>
-                    <p className="text-xs text-gray-600">{type.description}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Bid Amount */}

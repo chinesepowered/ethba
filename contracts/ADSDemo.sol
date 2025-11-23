@@ -57,26 +57,12 @@ contract ADSDemo is Ownable, ReentrancyGuard {
 
     // ============ Types ============
 
-    enum SlotType {
-        GLOBAL,         // Anyone can claim
-        US_ONLY,        // US IP addresses only
-        AR_ONLY,        // Argentina IP addresses only
-        EU_ONLY,        // EU IP addresses only
-        ASIA_ONLY,      // Asia IP addresses only
-        MOBILE_ONLY,    // Mobile devices only
-        DESKTOP_ONLY,   // Desktop devices only
-        IOS_ONLY,       // iOS devices only
-        ANDROID_ONLY,   // Android devices only
-        CUSTOM          // Custom targeting
-    }
-
     struct AdSlot {
         address advertiser;
         string name;
         string description;
         string imageUrl;
         uint256 bidAmount;
-        SlotType slotType;
         bool finalized;
         bool removed;
         uint256 totalClicks;
@@ -92,7 +78,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     uint256 internal immutable externalNullifier;
     uint256 internal immutable groupId = 1; // Orb verification (Device doesn't work in smart contract)
 
-    uint256 public constant AD_SLOTS_PER_CYCLE = 10;
+    uint256 public constant AD_SLOTS_PER_CYCLE = 3; // Slot 0: Global, Slot 1: US, Slot 2: Argentina
     uint256 public constant PLATFORM_FEE_BPS = 500; // 5%
     uint256 public constant CLAIM_DEADLINE = 14 days;
 
@@ -114,7 +100,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     // ============ Events ============
 
     event UserRegistered(address indexed user);
-    event AdBidPlaced(address indexed advertiser, uint256 indexed cycle, uint256 indexed slotIndex, SlotType slotType, uint256 bidAmount);
+    event AdBidPlaced(address indexed advertiser, uint256 indexed cycle, uint256 indexed slotIndex, uint256 bidAmount);
     event AdRemoved(address indexed advertiser, uint256 indexed cycle, uint256 indexed slotIndex);
     event ClickRecorded(address indexed user, uint256 indexed cycle, uint256 indexed slotIndex);
     event RewardClaimed(address indexed user, uint256 indexed cycle, uint256 indexed slotIndex, uint256 amount);
@@ -199,7 +185,6 @@ contract ADSDemo is Ownable, ReentrancyGuard {
         string calldata description,
         string calldata imageUrl,
         uint256 bidAmount,
-        SlotType slotType,
         IPermit2.PermitTransferFrom calldata permit,
         bytes calldata signature
     ) external nonReentrant {
@@ -234,11 +219,10 @@ contract ADSDemo is Ownable, ReentrancyGuard {
         slot.description = description;
         slot.imageUrl = imageUrl;
         slot.bidAmount = bidAmount;
-        slot.slotType = slotType;
 
         lockedFunds += bidAmount;
 
-        emit AdBidPlaced(msg.sender, cycle, slotIndex, slotType, bidAmount);
+        emit AdBidPlaced(msg.sender, cycle, slotIndex, bidAmount);
     }
 
     function removeAd(uint256 cycle, uint256 slotIndex) external nonReentrant {

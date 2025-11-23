@@ -25,91 +25,63 @@ console.log(`Signer Address: ${wallet.address}`);
 console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 console.log('='.repeat(60));
 
-// Slot type enum (matches contract)
-enum SlotType {
-  GLOBAL = 0,
-  US_ONLY = 1,
-  AR_ONLY = 2,
-  EU_ONLY = 3,
-  ASIA_ONLY = 4,
-  MOBILE_ONLY = 5,
-  DESKTOP_ONLY = 6,
-  IOS_ONLY = 7,
-  ANDROID_ONLY = 8,
-  CUSTOM = 9,
-}
+// Slot definitions (matches contract):
+// Slot 0: Global (anyone can click)
+// Slot 1: US only
+// Slot 2: Argentina only
 
 interface ClickRequest {
   userAddress: string;
   cycle: string;
   slotIndex: number;
-  slotType: SlotType;
 }
 
 /**
  * Verify user meets slot targeting criteria
  */
-function verifyTargeting(req: express.Request, slotType: SlotType): boolean {
-  // Get geo-IP from headers
-  const country = (req.headers['cf-ipcountry'] as string) ||
-                  (req.headers['x-vercel-ip-country'] as string) ||
-                  'UNKNOWN';
+function verifyTargeting(_req: express.Request, slotIndex: number): { eligible: boolean; reason?: string } {
+  // HACKATHON HARDCODED VALUES:
+  // - Slot 0 (Global): always pass
+  // - Slot 1 (US): always fail (for demo purposes)
+  // - Slot 2 (Argentina): always pass
 
-  // Get device from user-agent
-  const userAgent = req.headers['user-agent'] || '';
-  const isIOS = /iPhone|iPad|iPod/.test(userAgent);
-  const isAndroid = /Android/.test(userAgent);
-  const isMobile = isIOS || isAndroid;
-  const isDesktop = !isMobile;
+  // In production, you would check actual IP geolocation:
+  // const country = (req.headers['cf-ipcountry'] as string) ||
+  //                 (req.headers['x-vercel-ip-country'] as string) ||
+  //                 'UNKNOWN';
 
-  // Get continent (simplified - in production use proper geo-IP service)
-  const EU_COUNTRIES = ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'AT', 'SE', 'DK', 'NO', 'FI', 'PL', 'PT', 'GR', 'CZ', 'HU', 'IE'];
-  const ASIA_COUNTRIES = ['JP', 'CN', 'KR', 'IN', 'SG', 'TH', 'VN', 'ID', 'MY', 'PH', 'TW', 'HK'];
+  console.log(`[TARGETING] Slot ${slotIndex} check`);
 
-  console.log(`[TARGETING] Country: ${country}, UserAgent: ${userAgent.substring(0, 50)}...`);
+  switch (slotIndex) {
+    case 0: // Global
+      console.log(`[TARGETING] Slot 0 (Global) - PASS`);
+      return { eligible: true };
 
-  switch (slotType) {
-    case SlotType.GLOBAL:
-      return true; // Anyone can click
+    case 1: // US only
+      // HACKATHON: Always fail for demo
+      console.log(`[TARGETING] Slot 1 (US Only) - FAIL (hardcoded for demo)`);
+      return { eligible: false, reason: 'This ad is only available in the United States' };
 
-    case SlotType.US_ONLY:
-      return country === 'US';
-
-    case SlotType.AR_ONLY:
-      return country === 'AR';
-
-    case SlotType.EU_ONLY:
-      return EU_COUNTRIES.includes(country);
-
-    case SlotType.ASIA_ONLY:
-      return ASIA_COUNTRIES.includes(country);
-
-    case SlotType.MOBILE_ONLY:
-      return isMobile;
-
-    case SlotType.DESKTOP_ONLY:
-      return isDesktop;
-
-    case SlotType.IOS_ONLY:
-      return isIOS;
-
-    case SlotType.ANDROID_ONLY:
-      return isAndroid;
-
-    case SlotType.CUSTOM:
-      // Future: implement custom targeting logic
-      return true;
+    case 2: // Argentina only
+      // HACKATHON: Always pass for demo
+      console.log(`[TARGETING] Slot 2 (Argentina Only) - PASS (hardcoded for demo)`);
+      return { eligible: true };
 
     default:
-      return false;
+      return { eligible: false, reason: 'Invalid slot' };
   }
 }
 
 /**
- * Get human-readable slot type name
+ * Get human-readable slot name
  */
-function getSlotTypeName(slotType: SlotType): string {
-  return SlotType[slotType] || 'UNKNOWN';
+function getSlotName(slotIndex: number): string {
+  switch (slotIndex) {
+    case 0: return 'Global';
+    case 1: return 'US Only';
+    case 2: return 'Argentina Only';
+    default: return 'Unknown';
+  }
 }
 
 /**
@@ -135,9 +107,11 @@ app.get('/', (_req, res) => {
     description: 'Verifies targeting criteria and authorizes clicks for proportional reward distribution',
     tee: 'Oasis ROFL',
     signer: wallet.address,
+    slots: 3,
     endpoints: {
       health: '/health',
       authorizeClick: '/api/authorize-click',
+      slots: '/api/slots',
     },
   });
 });
@@ -150,10 +124,10 @@ app.get('/', (_req, res) => {
  */
 app.post('/api/authorize-click', async (req, res) => {
   try {
-    const { userAddress, cycle, slotIndex, slotType } = req.body as ClickRequest;
+    const { userAddress, cycle, slotIndex } = req.body as ClickRequest;
 
     // Validate inputs
-    if (!userAddress || cycle === undefined || slotIndex === undefined || slotType === undefined) {
+    if (!userAddress || cycle === undefined || slotIndex === undefined) {
       console.warn('[AUTHORIZE-CLICK] Missing parameters:', req.body);
       return res.status(400).json({ error: 'Missing parameters' });
     }
@@ -163,19 +137,19 @@ app.post('/api/authorize-click', async (req, res) => {
       return res.status(400).json({ error: 'Invalid address' });
     }
 
-    if (slotIndex < 0 || slotIndex >= 10) {
-      return res.status(400).json({ error: 'Invalid slot index' });
+    if (slotIndex < 0 || slotIndex > 2) {
+      return res.status(400).json({ error: 'Invalid slot index (must be 0, 1, or 2)' });
     }
 
     // Verify targeting criteria
-    const meetsTargeting = verifyTargeting(req, slotType);
+    const { eligible, reason } = verifyTargeting(req, slotIndex);
 
-    if (!meetsTargeting) {
-      const slotTypeName = getSlotTypeName(slotType);
-      console.warn(`[AUTHORIZE-CLICK] User ${userAddress.slice(0, 8)}... does not meet targeting criteria for ${slotTypeName}`);
+    if (!eligible) {
+      const slotName = getSlotName(slotIndex);
+      console.warn(`[AUTHORIZE-CLICK] User ${userAddress.slice(0, 8)}... does not meet targeting criteria for ${slotName}`);
       return res.status(403).json({
-        error: 'User does not meet targeting criteria',
-        slotType: slotTypeName,
+        error: reason || 'User does not meet targeting criteria',
+        slotName,
       });
     }
 
@@ -201,13 +175,13 @@ app.post('/api/authorize-click', async (req, res) => {
     const signature = await wallet.signMessage(ethers.getBytes(messageHash));
 
     // Log for audit trail (visible in TEE logs)
-    const slotTypeName = getSlotTypeName(slotType);
-    console.log(`[CLICK AUTHORIZED] user=${userAddress.slice(0, 8)}... cycle=${cycle} slot=${slotIndex} type=${slotTypeName}`);
+    const slotName = getSlotName(slotIndex);
+    console.log(`[CLICK AUTHORIZED] user=${userAddress.slice(0, 8)}... cycle=${cycle} slot=${slotIndex} (${slotName})`);
 
     // Return authorization
     return res.json({
       authorized: true,
-      slotType: slotTypeName,
+      slotName,
       nonce,
       timestamp,
       signature,
@@ -219,21 +193,14 @@ app.post('/api/authorize-click', async (req, res) => {
 });
 
 /**
- * Get targeting info for a slot type (helper endpoint)
+ * Get slot info (helper endpoint)
  */
-app.get('/api/slot-types', (_req, res) => {
+app.get('/api/slots', (_req, res) => {
   return res.json({
-    slotTypes: [
-      { id: SlotType.GLOBAL, name: 'GLOBAL', description: 'Anyone can claim' },
-      { id: SlotType.US_ONLY, name: 'US_ONLY', description: 'US IP addresses only' },
-      { id: SlotType.AR_ONLY, name: 'AR_ONLY', description: 'Argentina IP addresses only' },
-      { id: SlotType.EU_ONLY, name: 'EU_ONLY', description: 'EU IP addresses only' },
-      { id: SlotType.ASIA_ONLY, name: 'ASIA_ONLY', description: 'Asia IP addresses only' },
-      { id: SlotType.MOBILE_ONLY, name: 'MOBILE_ONLY', description: 'Mobile devices only' },
-      { id: SlotType.DESKTOP_ONLY, name: 'DESKTOP_ONLY', description: 'Desktop devices only' },
-      { id: SlotType.IOS_ONLY, name: 'IOS_ONLY', description: 'iOS devices only' },
-      { id: SlotType.ANDROID_ONLY, name: 'ANDROID_ONLY', description: 'Android devices only' },
-      { id: SlotType.CUSTOM, name: 'CUSTOM', description: 'Custom targeting' },
+    slots: [
+      { id: 0, name: 'Global', description: 'Anyone can click' },
+      { id: 1, name: 'US Only', description: 'US IP addresses only' },
+      { id: 2, name: 'Argentina Only', description: 'Argentina IP addresses only' },
     ],
   });
 });

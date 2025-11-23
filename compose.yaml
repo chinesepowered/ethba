@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   ads-backend:
-    image: chinesemanccsf/ads-backend:latest
+    image: docker.io/chinesemanccsf/ads-backend:latest
     container_name: ads-backend
     ports:
       - "3001:3001"

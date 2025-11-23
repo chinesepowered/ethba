@@ -30,6 +30,11 @@ export function AdvertiserView({ userAddress }: AdvertiserViewProps) {
     bidAmount: '',
   });
 
+  // Log contract address for debugging
+  useEffect(() => {
+    console.log('[AdvertiserView] Using contract address:', process.env.NEXT_PUBLIC_ADS_DEMO_CONTRACT_ADDRESS);
+  }, []);
+
   // Load advertiser history - shows ALL ads from ALL users
   useEffect(() => {
     const loadHistory = async () => {

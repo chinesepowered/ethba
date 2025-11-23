@@ -7,6 +7,7 @@ import { AdView } from '@/components/views/AdView';
 import { ClaimView } from '@/components/views/ClaimView';
 import { AdvertiserView } from '@/components/views/AdvertiserView';
 import { Navigation } from '@/components/Navigation';
+import { CycleManager } from '@/components/CycleManager';
 import { Marble, TopBar, Spinner } from '@worldcoin/mini-apps-ui-kit-react';
 import { useSession } from 'next-auth/react';
 import { useTabs } from '@/providers/TabContext';
@@ -134,7 +135,8 @@ export default function HomePage() {
       </Page.Header>
 
       <Page.Main className="flex flex-col items-center justify-start mb-16">
-        <div className="w-full px-3 pt-2 max-w-2xl mx-auto">
+        <div className="w-full px-3 pt-2 max-w-2xl mx-auto space-y-4">
+          <CycleManager />
           {activeTab === 'ads' && <AdView userAddress={walletAddress || ''} />}
           {activeTab === 'claim' && <ClaimView userAddress={walletAddress || ''} />}
           {activeTab === 'advertise' && <AdvertiserView userAddress={walletAddress || ''} />}

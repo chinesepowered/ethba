@@ -21,6 +21,7 @@ deployments:
     network: testnet
     paratime: sapphire
     admin: my_account
+    oci_repository: rofl.sh/180baa00-1936-483a-938f-1f7d3b56b6c8:1763863777
     trust_root:
       height: 29462618
       hash: 524e719d6fed3e9399627cc2851070d713aefe81e505ae3e47e7969b422d2a33
@@ -40,3 +41,8 @@ deployments:
     secrets:
       - name: SIGNER_PRIVATE_KEY
         value: pGJwa1ggcmF/sU9Fg/kdv6HeXvhetTth1ox84lrh/bhei8lw9jtkbmFtZVgiF2yK8wRKV+W8hB3OtkzfhOr/njpzyDI+Azkcf10FSGja2mVub25jZU9ByLZx4qOfmbvPfUdn1RpldmFsdWVYU5F7iDB8ulnPwz3UAgtT0c9XR/UnQGI8DQS7feX0yNOWa+NnUUk456Je5Yw5gT9ZthczuqvTCASuZeLKa2pnzwQKfV0gf6WYFbdILpgkBDDeOZs/
+    machines:
+      default:
+        provider: oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz
+        offer: playground_short
+        id: "0000000000000464"

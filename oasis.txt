@@ -1,0 +1,248 @@
+https://p3001.m1124.opf-testnet-rofl-25.rofl.app
+ 
+Method: rofl.Update
+Body:
+  {
+    "id": "rofl1qpx2j39qucv7ptn72erk3fz6yam0z5dzkqkd7t99",
+    "policy": {
+      "quotes": {
+        "pcs": {
+          "tcb_validity_period": 30,
+          "min_tcb_evaluation_data_number": 18,
+          "tdx": {}
+        }
+      },
+      "enclaves": [
+        "/AQedn0vl2HIZRDmTJ3ds470cMUUQmgNXzGJilvmX4UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "VVua5iYUpz1h77Z8RYQELuEvb5kR+qIEXjV3BQZzd+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+      ],
+      "endorsements": [
+        {
+          "any": {}
+        }
+      ],
+      "fees": 2,
+      "max_expiration": 3
+    },
+    "admin": "oasis1qp3mdmp3ryrpp0cv5t334wn2c5s8l8qghy7flrgf",
+    "metadata": {
+      "net.oasis.rofl.name": "ads-signing-backend",
+      "net.oasis.rofl.version": "1.0.0"
+    },
+    "secrets": {
+      "SIGNER_PRIVATE_KEY": "pGJwa1ggcmF/sU9Fg/kdv6HeXvhetTth1ox84lrh/bhei8lw9jtkbmFtZVgiF2yK8wRKV+W8hB3OtkzfhOr/njpzyDI+Azkcf10FSGja2mVub25jZU9ByLZx4qOfmbvPfUdn1RpldmFsdWVYU5F7iDB8ulnPwz3UAgtT0c9XR/UnQGI8DQS7feX0yNOWa+NnUUk456Je5Yw5gT9ZthczuqvTCASuZeLKa2pnzwQKfV0gf6WYFbdILpgkBDDeOZs/"
+    }
+  }
+Authorized signer(s):
+  1. A3MJoNG/FIMpf6qUhaGvW14x6wiZdui78Qc9eDfquNBr (secp256k1eth)
+     Nonce: 2
+Fee:
+  Amount: 0.0122322 TEST
+  Gas limit: 122322
+  (gas price: 0.0000001 TEST per gas unit)
+
+Network:  testnet
+ParaTime: sapphire
+? Sign this transaction? Yes
+(In case you are using a hardware-based signer you may need to confirm on device.)
+Broadcasting transaction...
+Transaction included in block successfully.
+Round:            14505198
+Transaction hash: 36eca2a2da30d5192e4907217255b74d4fc8d166fb9840bbf9188b73bade2ad6
+Execution successful.
+PS C:\code\ethba>  C:\oasis\oasis.exe rofl deploy --deployment default --account my_account
+Downloading compose.yaml artifact...
+  URI: compose.yaml
+Using provider: oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz (oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz)
+Unlock your account.
+? Passphrase: Pushing ROFL app to OCI repository 'rofl.sh/180baa00-1936-483a-938f-1f7d3b56b6c8:1763863777'...
+Pushing... 100.00% [#################################################] 84.78 MiB
+No pre-existing machine configured, creating a new one...
+Taking offer:
+- playground_short [0000000000000003]
+  TEE: tdx | Memory: 4096 MiB | vCPUs: 2 | Storage: 19.53 GiB
+  Note: ⚠️ Testnet ROFLs only. Do not use in production! ⚠️
+  Description:
+    Demo machine suitable for oracles, AI agents and light-weight web apps.
+    If you are running a local LLM, make sure it fits main memory (e.g.
+    gemma3:1b, deepseek-r1:1.5b)!
+  Price: 5.0 TEST/hour
+Selected per-hour pricing term, total price is 5.0 TEST.
+WARNING: Machine rental is non-refundable. You will not get a refund for the already paid term if you cancel.
+You are about to sign the following transaction:
+Format: plain
+Method: roflmarket.InstanceCreate
+Body:
+  {
+    "provider": "oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz",
+    "offer": "0000000000000003",
+    "deployment": {
+      "app_id": "rofl1qpx2j39qucv7ptn72erk3fz6yam0z5dzkqkd7t99",
+      "manifest_hash": "784666d04e57e4504932200b428e3491c491860cab19e3ae5f64a0bad09753b4",
+      "metadata": {
+        "net.oasis.deployment.orc.ref": "rofl.sh/180baa00-1936-483a-938f-1f7d3b56b6c8:1763863777@sha256:2744964b927950d23005ebd022175acda95fad5e10737bb781853b4ed6c9eb77"
+      }
+    },
+    "term": 1,
+    "term_count": 1
+  }
+Authorized signer(s):
+  1. A3MJoNG/FIMpf6qUhaGvW14x6wiZdui78Qc9eDfquNBr (secp256k1eth)
+     Nonce: 3
+Fee:
+  Amount: 0.0121926 TEST
+  Gas limit: 121926
+  (gas price: 0.0000001 TEST per gas unit)
+
+Network:  testnet
+ParaTime: sapphire
+? Sign this transaction? Yes
+(In case you are using a hardware-based signer you may need to confirm on device.)
+Broadcasting transaction...
+Transaction included in block successfully.
+Round:            14505257
+Transaction hash: 8ad42d6320a72cb97b22d6c3ad9b73be63941fb5e9c13167629ad3730021eacb
+Execution successful.
+Created machine: 0000000000000464
+Deployment into machine scheduled.
+This machine expires on 2025-11-22 19:15:14 -0800 PST. Use `oasis rofl machine top-up` to extend it.
+Use `oasis rofl machine show` to check status.
+PS C:\code\ethba>  C:\oasis\oasis.exe rofl machine show 0000000000000464 --deployment default
+The following machines are configured in the app manifest:
+  - default
+Error: machine '0000000000000464' not found in manifest
+PS C:\code\ethba>  C:\oasis\oasis.exe rofl machine show
+Downloading compose.yaml artifact...
+  URI: compose.yaml
+Name:       default
+Provider:   oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz
+ID:         0000000000000464
+Offer:      0000000000000003
+Status:     accepted
+Creator:    oasis1qp3mdmp3ryrpp0cv5t334wn2c5s8l8qghy7flrgf
+Admin:      oasis1qp3mdmp3ryrpp0cv5t334wn2c5s8l8qghy7flrgf
+Node ID:    1owPK3eT21k0ajRG7VfHRgp4JPXobCQtzuglz6ZSJis=
+Created at: 2025-11-22 18:15:14 -0800 PST
+Updated at: 2025-11-22 18:15:48 -0800 PST
+Paid until: 2025-11-22 19:15:14 -0800 PST
+Proxy:
+  Domain: m1124.opf-testnet-rofl-25.rofl.app
+  Ports from compose file:
+    3001 (ads-backend): https://p3001.m1124.opf-testnet-rofl-25.rofl.app
+Metadata:
+  net.oasis.scheduler.rak: IqTPUWeQ5yOJm6SqnW2k+KKaIzhpnZBH8Vv1Gc85hGM=
+Resources:
+  TEE:     Intel TDX
+  Memory:  4096 MiB
+  vCPUs:   2
+  Storage: 20000 MiB
+Deployment:
+  App ID: rofl1qpx2j39qucv7ptn72erk3fz6yam0z5dzkqkd7t99
+  Metadata:
+    net.oasis.deployment.orc.ref: rofl.sh/180baa00-1936-483a-938f-1f7d3b56b6c8:1763863777@sha256:2744964b927950d23005ebd022175acda95fad5e10737bb781853b4ed6c9eb77
+Commands:
+  <no queued commands>
+PS C:\code\ethba>  C:\oasis\oasis.exe rofl machine top-up --deployment default --account my_account
+Error: no term period specified. Use --term to specify it
+PS C:\code\ethba>  C:\oasis\oasis.exe rofl machine top-up
+Error: no term period specified. Use --term to specify it
+PS C:\code\ethba> C:\oasis\oasis.exe rofl machine top-up --deployment default --account my_account --term 24h
+Error: invalid machine payment term: 24h
+PS C:\code\ethba> C:\oasis\oasis.exe rofl machine top-up --deployment default --account my_account --term
+Error: flag needs an argument: --term
+Usage:
+  oasis rofl machine top-up [<machine-name>] [flags]
+
+Flags:
+      --account string       explicitly set account to use
+      --deployment string    deployment name (default "default")
+      --encrypted            encrypt transaction call data (requires online mode)
+      --fee-denom string     override fee denomination (defaults to native)
+      --format string        transaction output format (for offline/unsigned modes) [json, cbor] (default "json")
+      --gas-limit uint       override gas limit to use (disable estimation) (default 18446744073709551615)
+      --gas-price string     override gas price to use
+  -h, --help                 help for top-up
+      --network string       explicitly set network to use
+      --no-paratime          explicitly set that no ParaTime should be used
+      --nonce uint           override nonce to use (default 18446744073709551615)
+      --offline              do not perform any operations requiring network access
+  -o, --output-file string   output transaction into specified file instead of broadcasting
+      --paratime string      explicitly set ParaTime to use
+      --term string          term to pay for in advance [hour, month, year]
+      --term-count uint      number of terms to pay for in advance (default 1)
+      --unsigned             do not sign transaction
+  -y, --yes                  answer yes to all questions
+
+Global Flags:
+      --config string   config file to use
+
+PS C:\code\ethba> C:\oasis\oasis.exe rofl machine top-up --deployment default --account my_account --term 24hours
+Error: invalid machine payment term: 24hours
+PS C:\code\ethba> C:\oasis\oasis.exe rofl machine top-up --deployment default --account my_account --term hour --term-count 24
+Using provider:     oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz (oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz)
+Top-up machine:     default [0000000000000464]
+Top-up term:        24 x hour (120.0 TEST total)
+WARNING: Machine rental is non-refundable. You will not get a refund for the already paid term if you cancel.
+Unlock your account.
+? Passphrase: You are about to sign the following transaction:
+Format: plain
+Method: roflmarket.InstanceTopUp
+Body:
+  {
+    "provider": "oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz",
+    "id": "0000000000000464",
+    "term": 1,
+    "term_count": 24
+  }
+Authorized signer(s):
+  1. A3MJoNG/FIMpf6qUhaGvW14x6wiZdui78Qc9eDfquNBr (secp256k1eth)
+     Nonce: 4
+Fee:
+  Amount: 0.0013612 TEST
+  Gas limit: 13612
+  (gas price: 0.0000001 TEST per gas unit)
+
+Network:  testnet
+ParaTime: sapphire
+? Sign this transaction? Yes
+(In case you are using a hardware-based signer you may need to confirm on device.)
+Broadcasting transaction...
+Transaction included in block successfully.
+Round:            14505310
+Transaction hash: 7d12e31a880de168cc160b6a22e19aa1c5b0a26ad899b3da4f9988aa6a677848
+Error: Execution failed with error: module: accounts code: 2 message: accounts: insufficient balance
+Tip: You can get TEST tokens at https://faucet.testnet.oasis.io or #dev-central at https://oasis.io/discord.
+PS C:\code\ethba> C:\oasis\oasis.exe rofl machine top-up --deployment default --account my_account --term hour --term-count 24
+Using provider:     oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz (oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz)
+Top-up machine:     default [0000000000000464]
+Top-up term:        24 x hour (120.0 TEST total)
+WARNING: Machine rental is non-refundable. You will not get a refund for the already paid term if you cancel.
+Unlock your account.
+? Passphrase: You are about to sign the following transaction:
+Format: plain
+Method: roflmarket.InstanceTopUp
+Body:
+  {
+    "provider": "oasis1qp2ens0hsp7gh23wajxa4hpetkdek3swyyulyrmz",
+    "id": "0000000000000464",
+    "term": 1,
+    "term_count": 24
+  }
+Authorized signer(s):
+  1. A3MJoNG/FIMpf6qUhaGvW14x6wiZdui78Qc9eDfquNBr (secp256k1eth)
+     Nonce: 5
+Fee:
+  Amount: 0.0013612 TEST
+  Gas limit: 13612
+  (gas price: 0.0000001 TEST per gas unit)
+
+Network:  testnet
+ParaTime: sapphire
+? Sign this transaction? Yes
+(In case you are using a hardware-based signer you may need to confirm on device.)
+Broadcasting transaction...
+Transaction included in block successfully.
+Round:            14505326
+Transaction hash: aba015e0f9e213c27fda39e12f644faff734f9565d4f4e53ca3a622981618e59
+Execution successful.
+Machine topped up.

@@ -72,6 +72,7 @@ export function useENS(address: string | undefined) {
           // Step 3: Verify addresses match (case-insensitive)
           if (
             resolvedAddress &&
+            address &&
             resolvedAddress.toLowerCase() === address.toLowerCase()
           ) {
             setEnsName(reverseName);

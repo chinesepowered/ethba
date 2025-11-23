@@ -26,6 +26,15 @@ export function AdvertiserView({}: AdvertiserViewProps) {
     bidAmount: '',
   });
 
+  // Debug: Log state for troubleshooting
+  console.log('[AdvertiserView] State:', {
+    currentCycle: currentCycle?.toString(),
+    loading,
+    bidding,
+    selectedSlot,
+    hasFormData: !!formData.bidAmount,
+  });
+
   const handleSubmitBid = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedSlot === null || !currentCycle) return;
@@ -209,30 +218,22 @@ export function AdvertiserView({}: AdvertiserViewProps) {
             </p>
           </div>
 
-          {/* Estimated CPM */}
-          {formData.bidAmount && (
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm font-semibold text-gray-700 mb-2">Estimated Cost Per Click</p>
-              <p className="text-lg font-bold text-purple-600">
-                {(parseFloat(formData.bidAmount) * 0.95 / 100).toFixed(4)} WLD
-              </p>
-              <p className="text-xs text-gray-600 mt-1">Based on 100 clicks (actual may vary)</p>
-            </div>
-          )}
-
           {/* Submit */}
           <button
             type="submit"
-            disabled={bidding || loading || currentCycle === null}
+            disabled={bidding || loading}
             className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {bidding ? 'Placing Bid...' : loading ? 'Loading...' : 'Place Bid'}
           </button>
 
-          {currentCycle === null && !loading && (
-            <p className="text-xs text-red-600 text-center">
-              Failed to load contract data. Please refresh the page.
-            </p>
+          {/* Debug Info */}
+          {!loading && (
+            <div className="text-xs text-gray-500 text-center space-y-1">
+              <p>Current Cycle: {currentCycle !== null ? currentCycle.toString() : 'Loading...'}</p>
+              {loading && <p className="text-blue-600">Loading contract data...</p>}
+              {bidding && <p className="text-purple-600">Transaction in progress...</p>}
+            </div>
           )}
         </form>
       )}

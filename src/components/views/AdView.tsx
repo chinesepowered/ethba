@@ -21,27 +21,43 @@ const SLOTS = [
 const ELIGIBLE_SLOTS = [0, 2];
 
 export function AdView({ userAddress }: AdViewProps) {
-  const { currentCycle, currentAds, loading, refreshData, recordClick } = useADSContract();
+  const { currentCycle, loading, refreshData, recordClick, getAdsForCycle } = useADSContract();
   const [clicking, setClicking] = useState<{ [key: number]: boolean }>({});
+  const [clickableAds, setClickableAds] = useState<any[]>([]);
 
+  // Calculate clickable cycle (previous cycle, not current)
+  // Contract validation: cycle must be < currentCycle
+  const clickableCycle = currentCycle !== null && currentCycle > 0n ? currentCycle - 1n : null;
+
+  // Fetch ads from the clickable cycle (not currentCycle)
   useEffect(() => {
-    refreshData();
+    const loadClickableAds = async () => {
+      if (clickableCycle !== null) {
+        const ads = await getAdsForCycle(clickableCycle);
+        setClickableAds(ads);
+      } else {
+        setClickableAds([]);
+      }
+    };
+
+    loadClickableAds();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userAddress]);
+  }, [clickableCycle, userAddress]);
 
   const handleClick = async (slotIndex: number) => {
-    if (!currentCycle) return;
+    if (!clickableCycle) return;
 
     setClicking({ ...clicking, [slotIndex]: true });
 
     try {
       // Request click authorization from backend
+      // IMPORTANT: Use clickableCycle (previous cycle), not currentCycle
       const response = await fetch('/api/authorize-click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userAddress,
-          cycle: currentCycle.toString(),
+          cycle: clickableCycle.toString(),
           slotIndex,
         }),
       });
@@ -53,8 +69,8 @@ export function AdView({ userAddress }: AdViewProps) {
 
       const { nonce, timestamp, signature } = await response.json();
 
-      // Record click on contract
-      await recordClick(currentCycle, slotIndex, nonce, timestamp, signature);
+      // Record click on contract (use clickableCycle, not currentCycle)
+      await recordClick(clickableCycle, slotIndex, nonce, timestamp, signature);
 
       // Refresh data
       await refreshData();
@@ -76,7 +92,10 @@ export function AdView({ userAddress }: AdViewProps) {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Browse Ads</h2>
           <p className="text-sm text-gray-600">
-            Cycle {currentCycle?.toString() || '0'} • Click eligible ads to earn
+            {clickableCycle !== null
+              ? `Viewing Cycle ${clickableCycle.toString()} • Click to earn rewards`
+              : `Current Cycle ${currentCycle?.toString() || '0'} • Waiting for ads`
+            }
           </p>
         </div>
         <button
@@ -89,19 +108,38 @@ export function AdView({ userAddress }: AdViewProps) {
         </button>
       </div>
 
+      {/* Cycle 0 Notice */}
+      {currentCycle === 0n && (
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center">
+          <h3 className="font-bold text-blue-900 mb-2">🎯 First Cycle Setup</h3>
+          <p className="text-sm text-blue-800">
+            We're in Cycle 0! Advertisers are placing their first bids.
+            After the cycle progresses to Cycle 1, you'll be able to click and earn from these ads.
+          </p>
+          <p className="text-xs text-blue-700 mt-2">
+            Tip: Click the "Next Cycle" button above to progress when ready!
+          </p>
+        </div>
+      )}
+
       {/* Ads Grid */}
-      {loading && currentAds.length === 0 ? (
+      {loading && clickableAds.length === 0 ? (
         <div className="text-center py-12 text-gray-600">
           <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p>Loading ads...</p>
         </div>
-      ) : currentAds.length === 0 ? (
+      ) : clickableCycle === null ? (
+        <div className="text-center py-12 text-gray-600 bg-gray-50 rounded-xl">
+          <p className="font-semibold mb-2">No Clickable Ads Yet</p>
+          <p className="text-sm">Ads will become clickable after the cycle progresses.</p>
+        </div>
+      ) : clickableAds.length === 0 ? (
         <div className="text-center py-12 text-gray-600 bg-gray-50 rounded-xl">
           <p>No ads available for this cycle</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {currentAds
+          {clickableAds
             .map((ad, index) => ({ ad, index }))
             .filter(({ index }) => ELIGIBLE_SLOTS.includes(index)) // Only show eligible slots
             .map(({ ad, index }) => {

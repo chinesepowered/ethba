@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useADSContract } from '@/hooks/useADSContract';
-import { Globe, MapPin } from 'iconoir-react';
+import { Globe, MapPin, CheckCircle, WarningCircle } from 'iconoir-react';
 import { parseEther, formatEther } from 'viem';
 
 interface AdvertiserViewProps {
@@ -15,10 +15,12 @@ const SLOTS = [
   { id: 2, name: 'Argentina Only', description: 'Argentina IP addresses only', icon: <MapPin className="w-5 h-5" /> },
 ];
 
-export function AdvertiserView({ }: AdvertiserViewProps) {
-  const { currentCycle, currentAds, loading, placeAdBid } = useADSContract();
+export function AdvertiserView({}: AdvertiserViewProps) {
+  const { currentCycle, currentAds, loading, placeAdBid, refreshData } = useADSContract();
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [bidding, setBidding] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -40,6 +42,8 @@ export function AdvertiserView({ }: AdvertiserViewProps) {
     if (selectedSlot === null || currentCycle === null) return;
 
     setBidding(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
 
     try {
       const bidAmount = parseEther(formData.bidAmount);
@@ -53,7 +57,11 @@ export function AdvertiserView({ }: AdvertiserViewProps) {
         bidAmount
       );
 
-      alert('Bid placed successfully!');
+      // Show success message
+      setSuccessMessage(`Your bid of ${formData.bidAmount} WLD has been placed successfully! Your ad is now live for ${SLOTS[selectedSlot].name}.`);
+
+      // Refresh data to show updated ads
+      await refreshData();
 
       // Reset form
       setFormData({
@@ -63,9 +71,15 @@ export function AdvertiserView({ }: AdvertiserViewProps) {
         bidAmount: '',
       });
       setSelectedSlot(null);
+
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to place bid';
-      alert(errorMessage);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to place bid';
+      setErrorMessage(errorMsg);
+
+      // Auto-hide error message after 8 seconds
+      setTimeout(() => setErrorMessage(null), 8000);
     } finally {
       setBidding(false);
     }
@@ -73,6 +87,52 @@ export function AdvertiserView({ }: AdvertiserViewProps) {
 
   return (
     <div className="space-y-6">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 shadow-lg animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-7 h-7 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-green-900 mb-2">Bid Placed Successfully! 🎉</h3>
+              <p className="text-sm text-green-800">{successMessage}</p>
+            </div>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="text-green-600 hover:text-green-800 font-bold text-xl"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-xl p-6 shadow-lg animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                <WarningCircle className="w-7 h-7 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-red-900 mb-2">Bid Failed</h3>
+              <p className="text-sm text-red-800">{errorMessage}</p>
+            </div>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-red-600 hover:text-red-800 font-bold text-xl"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Advertise Your Product</h2>

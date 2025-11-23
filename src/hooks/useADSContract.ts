@@ -83,6 +83,27 @@ export function useADSContract() {
     refreshData();
   }, []);
 
+  // Get ads from a specific cycle
+  const getAdsForCycle = async (cycle: bigint): Promise<AdSlot[]> => {
+    try {
+      const slots = [];
+      // Fetch all 3 slots for the cycle
+      for (let i = 0; i < 3; i++) {
+        const slot = await client.readContract({
+          address: CONTRACTS.ADS_DEMO,
+          abi: ADS_DEMO_ABI,
+          functionName: 'adSlots',
+          args: [cycle, BigInt(i)],
+        }) as AdSlot;
+        slots.push(slot);
+      }
+      return slots;
+    } catch (error) {
+      console.error(`Failed to fetch ads for cycle ${cycle}:`, error);
+      return [];
+    }
+  };
+
   // Check if user has clicked an ad
   const hasUserClicked = async (
     userAddress: string,
@@ -273,6 +294,7 @@ export function useADSContract() {
     poolBalances,
     loading,
     refreshData,
+    getAdsForCycle,
     hasUserClicked,
     isUserRegistered,
     getUserClaimableRewards,

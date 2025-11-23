@@ -256,6 +256,7 @@ export function RegistrationView() {
   };
 
   // Register with World ID verification
+  // HACKATHON DEMO: Contract doesn't verify proof, but we still show the flow for realistic UX
   const register = async () => {
     if (!MiniKit.isInstalled()) {
       setMessage('Please open this app in World App');
@@ -268,7 +269,7 @@ export function RegistrationView() {
       return;
     }
 
-    // If already verified, proceed with registration
+    // Send real proof (contract ignores it, but UX is complete)
     await proceedWithRegistration(verificationProof);
   };
 
@@ -288,7 +289,7 @@ export function RegistrationView() {
     const verifyPayload = {
       action,
       signal: walletAddress, // Use wallet address as signal
-      verification_level: VerificationLevel.Device, // Use Device for testing
+      verification_level: VerificationLevel.Orb, // Orb required (Device doesn't work in smart contract)
     };
 
     MiniKit.commands.verify(verifyPayload);

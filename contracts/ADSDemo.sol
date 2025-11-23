@@ -90,7 +90,7 @@ contract ADSDemo is Ownable, ReentrancyGuard {
     IPermit2 public immutable permit2;
     IWorldID public immutable worldId;
     uint256 internal immutable externalNullifier;
-    uint256 internal immutable groupId = 1; // Orb verification (Device doesn't work on cloud)
+    uint256 internal immutable groupId = 1; // Orb verification (Device doesn't work in smart contract)
 
     uint256 public constant AD_SLOTS_PER_CYCLE = 10;
     uint256 public constant PLATFORM_FEE_BPS = 500; // 5%

@@ -101,18 +101,22 @@ export function useADSContract() {
 
           console.log(`[useADSContract] 📦 RAW response for adSlots(${cycle}, ${i}):`, slot);
 
-          // Ensure slot has all required properties with defaults
+          // IMPORTANT: Solidity returns struct from public mapping as TUPLE (array), not object!
+          // We must access by index: [0]=advertiser, [1]=name, [2]=description, [3]=imageUrl,
+          //                          [4]=bidAmount, [5]=finalized, [6]=removed, [7]=totalClicks,
+          //                          [8]=claimedAmount, [9]=finalizedAt
+          const slotArray = slot as any;
           const processedSlot = {
-            advertiser: slot?.advertiser || '0x0000000000000000000000000000000000000000',
-            name: slot?.name || '',
-            description: slot?.description || '',
-            imageUrl: slot?.imageUrl || '',
-            bidAmount: slot?.bidAmount ?? 0n,
-            finalized: slot?.finalized ?? false,
-            removed: slot?.removed ?? false,
-            totalClicks: slot?.totalClicks ?? 0n,
-            claimedAmount: slot?.claimedAmount ?? 0n,
-            finalizedAt: slot?.finalizedAt ?? 0n,
+            advertiser: slotArray[0] || '0x0000000000000000000000000000000000000000',
+            name: slotArray[1] || '',
+            description: slotArray[2] || '',
+            imageUrl: slotArray[3] || '',
+            bidAmount: slotArray[4] ?? 0n,
+            finalized: slotArray[5] ?? false,
+            removed: slotArray[6] ?? false,
+            totalClicks: slotArray[7] ?? 0n,
+            claimedAmount: slotArray[8] ?? 0n,
+            finalizedAt: slotArray[9] ?? 0n,
           };
 
           slots.push(processedSlot);

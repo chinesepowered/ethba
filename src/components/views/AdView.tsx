@@ -13,7 +13,7 @@ interface AdViewProps {
 // Slot definitions (matches backend and contract)
 const SLOTS = [
   { id: 0, name: 'Global', icon: <Globe className="w-4 h-4" />, eligible: true },
-  { id: 1, name: 'US Only', icon: <MapPin className="w-4 h-4" />, eligible: false }, // Not shown to users (hardcoded)
+  { id: 1, name: 'US Only', icon: <MapPin className="w-4 h-4" />, eligible: false },
   { id: 2, name: 'Argentina Only', icon: <MapPin className="w-4 h-4" />, eligible: true },
 ];
 
@@ -33,7 +33,9 @@ export function AdView({ userAddress }: AdViewProps) {
   useEffect(() => {
     const loadClickableAds = async () => {
       if (clickableCycle !== null) {
+        console.log('[AdView] Loading ads for cycle:', clickableCycle.toString());
         const ads = await getAdsForCycle(clickableCycle);
+        console.log('[AdView] Loaded ads:', ads);
         setClickableAds(ads);
       } else {
         setClickableAds([]);
@@ -140,7 +142,16 @@ export function AdView({ userAddress }: AdViewProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {clickableAds
-            .map((ad, index) => ({ ad, index }))
+            .map((ad, index) => {
+              console.log(`[AdView] Slot ${index}:`, {
+                hasAd: ad && ad.advertiser && ad.advertiser !== '0x0000000000000000000000000000000000000000',
+                advertiser: ad?.advertiser,
+                name: ad?.name,
+                bidAmount: ad?.bidAmount?.toString(),
+                eligible: ELIGIBLE_SLOTS.includes(index)
+              });
+              return { ad, index };
+            })
             .filter(({ index }) => ELIGIBLE_SLOTS.includes(index)) // Only show eligible slots
             .map(({ ad, index }) => {
               const hasAd = ad && ad.advertiser && ad.advertiser !== '0x0000000000000000000000000000000000000000';

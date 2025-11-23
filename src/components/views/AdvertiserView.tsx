@@ -118,7 +118,7 @@ export function AdvertiserView({}: AdvertiserViewProps) {
               >
                 <div className="text-center">
                   <p className="font-bold text-lg mb-1">Slot {index}</p>
-                  {hasAd ? (
+                  {hasAd && currentAd ? (
                     <>
                       <p className="text-xs text-gray-600 mb-1">Current Bid</p>
                       <p className="text-sm font-semibold text-purple-600">

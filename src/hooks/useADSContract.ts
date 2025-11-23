@@ -205,21 +205,46 @@ export function useADSContract() {
     timestamp: number,
     signature: string
   ) => {
-    const result = await MiniKit.commandsAsync.sendTransaction({
-      transaction: [
-        {
-          address: CONTRACTS.ADS_DEMO,
-          abi: ADS_DEMO_ABI,
-          functionName: 'recordClick',
-          args: [cycle, BigInt(slotIndex), BigInt(nonce), BigInt(timestamp), signature as `0x${string}`],
-        },
-      ],
+    console.log('[useADSContract] 🔗 recordClick called with:', {
+      cycle: cycle.toString(),
+      slotIndex,
+      nonce,
+      timestamp,
+      signature,
+      contractAddress: CONTRACTS.ADS_DEMO,
     });
 
-    if (result.finalPayload.status === 'success') {
-      return result.finalPayload;
-    } else {
-      throw new Error(result.finalPayload.error_code || 'Transaction failed');
+    try {
+      console.log('[useADSContract] 📤 Sending transaction via MiniKit...');
+      const result = await MiniKit.commandsAsync.sendTransaction({
+        transaction: [
+          {
+            address: CONTRACTS.ADS_DEMO,
+            abi: ADS_DEMO_ABI,
+            functionName: 'recordClick',
+            args: [cycle, BigInt(slotIndex), BigInt(nonce), BigInt(timestamp), signature as `0x${string}`],
+          },
+        ],
+      });
+
+      console.log('[useADSContract] 📨 MiniKit response:', result);
+      console.log('[useADSContract] 📊 Final payload:', result.finalPayload);
+
+      if (result.finalPayload.status === 'success') {
+        console.log('[useADSContract] ✅ recordClick transaction successful');
+        return result.finalPayload;
+      } else {
+        const errorMsg = result.finalPayload.error_code || 'Transaction failed';
+        console.error('[useADSContract] ❌ recordClick transaction failed:', errorMsg);
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('[useADSContract] ❌ recordClick error:', error);
+      console.error('[useADSContract] ❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
     }
   };
 

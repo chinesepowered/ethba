@@ -45,40 +45,64 @@ export function AdView({ userAddress }: AdViewProps) {
   }, [clickableCycle]); // Only re-run when clickableCycle changes
 
   const handleClick = async (slotIndex: number) => {
-    if (!clickableCycle) return;
+    console.log(`[AdView] 🖱️ Click button pressed for slot ${slotIndex}`);
+    console.log(`[AdView] 📊 State - clickableCycle: ${clickableCycle}, currentCycle: ${currentCycle}, userAddress: ${userAddress}`);
 
+    if (clickableCycle === null) {
+      console.log('[AdView] ❌ No clickable cycle available');
+      return;
+    }
+
+    console.log(`[AdView] 📡 Requesting authorization for cycle ${clickableCycle.toString()}, slot ${slotIndex}`);
     setClicking({ ...clicking, [slotIndex]: true });
 
     try {
       // Request click authorization from backend
       // IMPORTANT: Use clickableCycle (previous cycle), not currentCycle
+      const requestBody = {
+        userAddress,
+        cycle: clickableCycle.toString(),
+        slotIndex,
+      };
+      console.log('[AdView] 📤 Sending request to /api/authorize-click:', requestBody);
+
       const response = await fetch('/api/authorize-click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userAddress,
-          cycle: clickableCycle.toString(),
-          slotIndex,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('[AdView] 📨 Authorization response status:', response.status, response.ok);
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('[AdView] ❌ Authorization failed:', error);
         throw new Error(error.error || 'Not eligible for this ad');
       }
 
-      const { nonce, timestamp, signature } = await response.json();
+      const authData = await response.json();
+      console.log('[AdView] ✅ Authorization data received:', { nonce: authData.nonce, timestamp: authData.timestamp, signatureLength: authData.signature?.length });
+
+      const { nonce, timestamp, signature } = authData;
 
       // Record click on contract (use clickableCycle, not currentCycle)
-      await recordClick(clickableCycle, slotIndex, nonce, timestamp, signature);
+      console.log('[AdView] 🔗 Calling recordClick with:', { cycle: clickableCycle.toString(), slotIndex, nonce, timestamp });
+      const txResult = await recordClick(clickableCycle, slotIndex, nonce, timestamp, signature);
+      console.log('[AdView] ✅ recordClick succeeded:', txResult);
 
       // Refresh data
+      console.log('[AdView] 🔄 Refreshing data...');
       await refreshData();
+      console.log('[AdView] ✅ Click recorded successfully!');
       alert('Click recorded! You can claim your reward after the cycle ends.');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to record click';
+      console.error('[AdView] ❌ handleClick error:', error);
+      console.error('[AdView] ❌ Error message:', errorMessage);
+      console.error('[AdView] ❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       alert(errorMessage);
     } finally {
+      console.log('[AdView] 🏁 Resetting clicking state for slot', slotIndex);
       setClicking({ ...clicking, [slotIndex]: false });
     }
   };

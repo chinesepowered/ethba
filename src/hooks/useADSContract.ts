@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type Address } from 'viem';
 import { MiniKit } from '@worldcoin/minikit-js';
 import { CONTRACTS } from '@/config/contracts';
@@ -77,6 +77,11 @@ export function useADSContract() {
       setLoading(false);
     }
   };
+
+  // Auto-fetch data on mount
+  useEffect(() => {
+    refreshData();
+  }, []);
 
   // Check if user has clicked an ad
   const hasUserClicked = async (

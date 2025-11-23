@@ -41,12 +41,21 @@ export function AdvertiserView({}: AdvertiserViewProps) {
     e.preventDefault();
     if (selectedSlot === null || currentCycle === null) return;
 
+    console.log('[AdvertiserView] Placing bid:', {
+      cycle: currentCycle.toString(),
+      slot: selectedSlot,
+      name: formData.name,
+      bidAmount: formData.bidAmount,
+    });
+
     setBidding(true);
     setSuccessMessage(null);
     setErrorMessage(null);
 
     try {
       const bidAmount = parseEther(formData.bidAmount);
+
+      console.log(`[AdvertiserView] Calling placeAdBid for cycle ${currentCycle.toString()}, slot ${selectedSlot}`);
 
       await placeAdBid(
         currentCycle,

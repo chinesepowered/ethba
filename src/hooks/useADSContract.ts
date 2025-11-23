@@ -40,6 +40,7 @@ export function useADSContract() {
   // Fetch current cycle and ads
   const refreshData = async () => {
     setLoading(true);
+    console.log('[useADSContract] refreshData called');
     try {
       const [cycle, ads, locked, fees] = await Promise.all([
         client.readContract({
@@ -64,6 +65,14 @@ export function useADSContract() {
         }),
       ]);
 
+      console.log('[useADSContract] Contract data fetched:', {
+        currentCycle: (cycle as bigint).toString(),
+        adsCount: (ads as AdSlot[]).length,
+        ads: ads,
+        lockedFunds: (locked as bigint).toString(),
+        fees: (fees as bigint).toString(),
+      });
+
       setCurrentCycle(cycle as bigint);
       setCurrentAds(ads as AdSlot[]);
       setPoolBalances({
@@ -72,7 +81,7 @@ export function useADSContract() {
         fees: fees as bigint,
       });
     } catch (error) {
-      console.error('Failed to fetch contract data:', error);
+      console.error('[useADSContract] Failed to fetch contract data:', error);
     } finally {
       setLoading(false);
     }
@@ -85,11 +94,13 @@ export function useADSContract() {
 
   // Get ads from a specific cycle
   const getAdsForCycle = async (cycle: bigint): Promise<AdSlot[]> => {
+    console.log(`[useADSContract] getAdsForCycle called for cycle ${cycle.toString()}`);
     try {
       const slots = [];
       // Fetch all 3 slots for the cycle
       for (let i = 0; i < 3; i++) {
         try {
+          console.log(`[useADSContract] Fetching slot ${i} for cycle ${cycle.toString()}`);
           const slot = await client.readContract({
             address: CONTRACTS.ADS_DEMO,
             abi: ADS_DEMO_ABI,
@@ -97,8 +108,19 @@ export function useADSContract() {
             args: [cycle, BigInt(i)],
           }) as AdSlot;
 
+          console.log(`[useADSContract] Raw slot ${i} data:`, {
+            advertiser: slot?.advertiser,
+            name: slot?.name,
+            description: slot?.description,
+            bidAmount: slot?.bidAmount?.toString(),
+            finalized: slot?.finalized,
+            removed: slot?.removed,
+            totalClicks: slot?.totalClicks?.toString(),
+            rawSlot: slot
+          });
+
           // Ensure slot has all required properties with defaults
-          slots.push({
+          const processedSlot = {
             advertiser: slot?.advertiser || '0x0000000000000000000000000000000000000000',
             name: slot?.name || '',
             description: slot?.description || '',
@@ -109,9 +131,12 @@ export function useADSContract() {
             totalClicks: slot?.totalClicks ?? 0n,
             claimedAmount: slot?.claimedAmount ?? 0n,
             finalizedAt: slot?.finalizedAt ?? 0n,
-          });
+          };
+
+          console.log(`[useADSContract] Processed slot ${i}:`, processedSlot);
+          slots.push(processedSlot);
         } catch (slotError) {
-          console.error(`Failed to fetch slot ${i} for cycle ${cycle}:`, slotError);
+          console.error(`[useADSContract] ERROR fetching slot ${i} for cycle ${cycle}:`, slotError);
           // Push empty slot on error
           slots.push({
             advertiser: '0x0000000000000000000000000000000000000000',
@@ -127,9 +152,10 @@ export function useADSContract() {
           });
         }
       }
+      console.log(`[useADSContract] Returning ${slots.length} slots for cycle ${cycle.toString()}`);
       return slots;
     } catch (error) {
-      console.error(`Failed to fetch ads for cycle ${cycle}:`, error);
+      console.error(`[useADSContract] Failed to fetch ads for cycle ${cycle}:`, error);
       return [];
     }
   };
